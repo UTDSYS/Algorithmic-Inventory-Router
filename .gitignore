@@ -1,0 +1,20 @@
+# Python
+src/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node / web
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Docs (kept local for now)
+docs/
+
+# Env / editor / OS
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/
