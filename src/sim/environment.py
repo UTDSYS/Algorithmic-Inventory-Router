@@ -126,6 +126,12 @@ class InventoryRoutingEnv:
         }
         return StepResult(self._observation(), cost.reward, done, info)
 
+    def current_observation(self) -> Observation:
+        """The current observation. Requires :meth:`reset` to have been called."""
+        if self._state is None:
+            raise RuntimeError("call reset() before observing")
+        return self._observation()
+
     @property
     def done(self) -> bool:
         return self._state is not None and self._state.day >= self.scenario.horizon
