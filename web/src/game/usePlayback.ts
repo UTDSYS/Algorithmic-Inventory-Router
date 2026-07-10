@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AgentEpisodeResponse, RouteView, StateView } from '../api/types'
 import { clampDay, cumulativeCost } from './playback'
 
-const DAY_MS = 1400
+// Base time to animate one day at 1x. The speed selector (0.5x..4x) scales this,
+// so 1x is a calm ~3.5s/day and 4x restores the old snappy pace.
+const DAY_MS = 3500
 
 export interface Playback {
   horizon: number
