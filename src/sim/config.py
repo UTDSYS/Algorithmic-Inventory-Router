@@ -10,6 +10,7 @@ See docs/superpowers/specs/2026-07-08-sim-state-config-design.md.
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 
 from sim.state import Fleet, StoreState, WorldState
@@ -94,30 +95,30 @@ class Scenario:
         )
 
 
+_LAYOUT_SEED = 42
+
+
 def default_scenario() -> Scenario:
     """The single hand-authored map the first version ships with.
 
-    Eight stores on a 100x100 grid with the depot at the centre, two trucks of
-    capacity 50 (about 100 units/day) against roughly 80 units/day of expected
-    demand, so the fleet is tight and the player must prioritise. Stockouts
-    (penalty 20) dominate holding cost (1), and travel is charged per unit
-    distance.
+    Eight stores scattered across a 100x100 grid with the depot in the
+    bottom-left corner, two trucks of capacity 50 (about 100 units/day) against
+    roughly 80 units/day of expected demand, so the fleet is tight and the
+    player must prioritise. Stockouts (penalty 20) dominate holding cost (1),
+    and travel is charged per unit distance.
+
+    Store positions are drawn from a fixed seed (:data:`_LAYOUT_SEED`), so the
+    scatter is irregular but identical on every call.
     """
-    # (x, y, initial_inventory) per store; max capacity and costs are uniform.
-    layout = [
-        (20.0, 20.0, 20),
-        (80.0, 20.0, 18),
-        (20.0, 80.0, 22),
-        (80.0, 80.0, 20),
-        (50.0, 15.0, 15),
-        (15.0, 50.0, 25),
-        (85.0, 50.0, 20),
-        (50.0, 85.0, 20),
-    ]
+    rng = random.Random(_LAYOUT_SEED)
+    # One irregular map: random positions, hand-set starting inventories so the
+    # opening stock spread stays deliberate. Positions stay inside [15, 95] on
+    # both axes, clear of the bottom-left depot and the grid edges.
+    initial_inventories = (20, 18, 22, 20, 15, 25, 20, 20)
     stores = tuple(
         StoreConfig(
             store_id=i,
-            location=(x, y),
+            location=(round(rng.uniform(15.0, 95.0), 1), round(rng.uniform(15.0, 95.0), 1)),
             max_capacity=40,
             initial_inventory=initial,
             holding_cost=1.0,
@@ -125,15 +126,15 @@ def default_scenario() -> Scenario:
             demand_mean=10.0,
             demand_spread=3.0,
         )
-        for i, (x, y, initial) in enumerate(layout)
+        for i, initial in enumerate(initial_inventories)
     )
     return Scenario(
         name="default",
         stores=stores,
-        depot_location=(50.0, 50.0),
+        depot_location=(10.0, 10.0),
         fleet=Fleet(num_trucks=2, capacity=50),
         horizon=12,
         travel_cost_per_distance=1.0,
         depot_inventory=1000,
-        seed=42,
+        seed=_LAYOUT_SEED,
     )
