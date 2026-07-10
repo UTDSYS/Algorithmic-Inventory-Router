@@ -17,7 +17,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from agents.base import Agent, run_episode
+from agents.base import Agent, run_episode, trace_episode
 from agents.greedy import GreedyAgent
 from agents.nearest_neighbour import NearestNeighbourAgent
 from sim.config import Scenario, default_scenario
@@ -132,6 +132,34 @@ class BaselineResponse(BaseModel):
     cost: CostView
 
 
+class StopView(BaseModel):
+    store_id: int
+    quantity: int
+
+
+class RouteView(BaseModel):
+    truck_id: int
+    stops: list[StopView]
+
+
+class ActionView(BaseModel):
+    routes: list[RouteView]
+
+
+class DayView(BaseModel):
+    day: int
+    action: ActionView
+    cost: CostView
+    state: StateView
+
+
+class AgentEpisodeResponse(BaseModel):
+    agent: str
+    seed: int
+    days: list[DayView]
+    total_cost: CostView
+
+
 # --- translation ---------------------------------------------------------
 
 
@@ -172,6 +200,18 @@ def _state_view(observation: Observation) -> StateView:
             num_trucks=scenario.fleet.num_trucks, capacity=scenario.fleet.capacity
         ),
         stores=stores,
+    )
+
+
+def _action_view(action: Action) -> ActionView:
+    return ActionView(
+        routes=[
+            RouteView(
+                truck_id=route.truck_id,
+                stops=[StopView(store_id=s.store_id, quantity=s.quantity) for s in route.stops],
+            )
+            for route in action.routes
+        ]
     )
 
 
@@ -240,3 +280,28 @@ def run_baseline(game_id: str, request: BaselineRequest) -> BaselineResponse:
         InventoryRoutingEnv(session.scenario), agent_cls(), seed=session.seed
     )
     return BaselineResponse(agent=request.agent, cost=_cost_view(result.total))
+
+
+@app.post("/games/{game_id}/agent_episode", response_model=AgentEpisodeResponse)
+def run_agent_episode(game_id: str, request: BaselineRequest) -> AgentEpisodeResponse:
+    session = _get_session(game_id)
+    agent_cls = BASELINE_AGENTS.get(request.agent)
+    if agent_cls is None:
+        raise HTTPException(status_code=400, detail=f"unknown agent {request.agent}")
+    trace = trace_episode(
+        InventoryRoutingEnv(session.scenario), agent_cls(), seed=session.seed
+    )
+    return AgentEpisodeResponse(
+        agent=request.agent,
+        seed=session.seed,
+        days=[
+            DayView(
+                day=record.day,
+                action=_action_view(record.action),
+                cost=_cost_view(record.cost),
+                state=_state_view(record.observation),
+            )
+            for record in trace.records
+        ],
+        total_cost=_cost_view(trace.total),
+    )

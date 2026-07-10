@@ -1,0 +1,90 @@
+/* utdsys.com-derived design tokens: white ground, navy ink, signal blue. */
+:root {
+  --bg: #ffffff;
+  --panel: #f7f8fa;
+  --ink: #1b2a4a;
+  --ink-strong: #0e1830;
+  --signal: #2d5bff;
+  --red: #bf000f;
+
+  --ink-60: rgba(27, 42, 74, 0.6);
+  --ink-40: rgba(27, 42, 74, 0.4);
+  --line: rgba(27, 42, 74, 0.12);
+  --line-strong: rgba(27, 42, 74, 0.2);
+  --signal-soft: rgba(45, 91, 255, 0.1);
+
+  --health-critical: #bf000f;
+  --health-low: #d9822b;
+  --health-ok: #2e9e5b;
+
+  --ff-display: 'Schibsted Grotesk', system-ui, sans-serif;
+  --ff-body: 'Instrument Sans', system-ui, sans-serif;
+  --ff-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius-sm: 0.5rem;
+  --radius: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-pill: 999px;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--ff-body);
+  font-size: 15px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--ff-display);
+  color: var(--ink-strong);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+button {
+  font-family: var(--ff-body);
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.mono {
+  font-family: var(--ff-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.eyebrow {
+  font-family: var(--ff-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-40);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

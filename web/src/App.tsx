@@ -1,121 +1,121 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
+import { newGame, runAgentEpisode } from './api/client'
+import type { AgentEpisodeResponse, AgentName, StateView } from './api/types'
+import { ControlPanel } from './components/ControlPanel'
+import { GameHeader } from './components/GameHeader'
+import { MapView } from './components/MapView'
+import { StoreStrip } from './components/StoreStrip'
+import { usePlayback } from './game/usePlayback'
+
+const AGENT_LABELS: Record<AgentName, string> = {
+  greedy: 'Greedy',
+  nearest_neighbour: 'Nearest-Neighbour',
+}
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [gameId, setGameId] = useState<string | null>(null)
+  const [seed, setSeed] = useState('42')
+  const [baseState, setBaseState] = useState<StateView | null>(null)
+  const [episode, setEpisode] = useState<AgentEpisodeResponse | null>(null)
+  const [agent, setAgent] = useState<AgentName | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const autoPlay = useRef(false)
+
+  const playback = usePlayback(episode, baseState)
+
+  const startGame = useCallback(async (seedValue?: number) => {
+    setBusy(true)
+    setError(null)
+    try {
+      const game = await newGame(seedValue)
+      setGameId(game.game_id)
+      setBaseState(game.state)
+      setSeed(String(game.seed))
+      setEpisode(null)
+      setAgent(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start a game')
+    } finally {
+      setBusy(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void startGame()
+  }, [startGame])
+
+  const handleNewGame = () => {
+    const parsed = Number.parseInt(seed, 10)
+    void startGame(Number.isNaN(parsed) ? undefined : parsed)
+  }
+
+  const handleRunAgent = async (which: AgentName) => {
+    if (!gameId) return
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await runAgentEpisode(gameId, which)
+      setAgent(which)
+      autoPlay.current = true
+      setEpisode(result)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not run the agent')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Auto-play a freshly loaded episode.
+  useEffect(() => {
+    if (episode && autoPlay.current) {
+      autoPlay.current = false
+      playback.play()
+    }
+  }, [episode, playback])
+
+  const state = playback.displayState ?? baseState
+  const day = episode ? playback.completedDays : 0
+  const horizon = state?.horizon ?? 0
+  const atEnd = playback.completedDays >= playback.horizon
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app">
+      <GameHeader day={day} horizon={horizon} agentLabel={agent ? AGENT_LABELS[agent] : null} />
 
-      <div className="ticks"></div>
+      {error && <div className="app__error">{error}</div>}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      {state ? (
+        <>
+          <StoreStrip stores={state.stores} />
+          <div className="app__stage">
+            <div className="app__map-wrap">
+              <MapView state={state} routes={playback.activeRoutes} progress={playback.progress} />
+            </div>
+            <ControlPanel
+              seed={seed}
+              onSeedChange={setSeed}
+              onNewGame={handleNewGame}
+              onRunAgent={handleRunAgent}
+              busy={busy}
+              hasEpisode={episode != null}
+              playing={playback.playing}
+              atEnd={atEnd}
+              speed={playback.speed}
+              onPlay={playback.play}
+              onPause={playback.pause}
+              onStep={playback.step}
+              onReset={playback.reset}
+              onSpeed={playback.setSpeed}
+              cost={playback.runningCost}
+            />
+          </div>
+        </>
+      ) : (
+        <div className="app__loading">Starting a game…</div>
+      )}
+    </div>
   )
 }
 

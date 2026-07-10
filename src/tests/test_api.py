@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from agents.base import run_episode
+from agents.base import run_episode, trace_episode
 from agents.greedy import GreedyAgent
 from agents.nearest_neighbour import NearestNeighbourAgent
 from api.server import app
@@ -159,6 +159,65 @@ def test_baseline_matches_no_ui_run(name, agent_factory):
 def test_unknown_baseline_agent_returns_400():
     game_id = new_game()["game_id"]
     response = client.post(f"/games/{game_id}/baseline", json={"agent": "wizard"})
+    assert response.status_code == 400
+
+
+# --- agent episode (trace for playback) ----------------------------------
+
+
+def test_agent_episode_returns_one_day_per_horizon():
+    game_id = new_game()["game_id"]
+    response = client.post(f"/games/{game_id}/agent_episode", json={"agent": "greedy"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["agent"] == "greedy"
+    assert len(body["days"]) == default_scenario().horizon
+    day0 = body["days"][0]
+    assert day0["day"] == 0
+    assert "routes" in day0["action"]
+    assert {"travel", "holding", "stockout", "total"} <= day0["cost"].keys()
+    assert day0["state"]["day"] == 1  # state after the day
+
+
+def test_agent_episode_total_matches_no_ui_trace():
+    game = new_game()
+    game_id = game["game_id"]
+    body = client.post(
+        f"/games/{game_id}/agent_episode", json={"agent": "nearest_neighbour"}
+    ).json()
+    expected = trace_episode(
+        InventoryRoutingEnv(default_scenario()),
+        NearestNeighbourAgent(),
+        seed=game["seed"],
+    ).total.total
+    assert body["total_cost"]["total"] == pytest.approx(expected)
+
+
+def test_agent_episode_actions_match_no_ui_trace():
+    game = new_game()
+    game_id = game["game_id"]
+    body = client.post(
+        f"/games/{game_id}/agent_episode", json={"agent": "greedy"}
+    ).json()
+    trace = trace_episode(
+        InventoryRoutingEnv(default_scenario()), GreedyAgent(), seed=game["seed"]
+    )
+    # first day's routes should match the no-UI trace exactly
+    api_day0 = body["days"][0]["action"]["routes"]
+    ref_day0 = trace.records[0].action.routes
+    assert len(api_day0) == len(ref_day0)
+    for api_route, ref_route in zip(api_day0, ref_day0):
+        assert api_route["truck_id"] == ref_route.truck_id
+        api_stops = [(s["store_id"], s["quantity"]) for s in api_route["stops"]]
+        ref_stops = [(s.store_id, s.quantity) for s in ref_route.stops]
+        assert api_stops == ref_stops
+
+
+def test_agent_episode_unknown_agent_returns_400():
+    game_id = new_game()["game_id"]
+    response = client.post(
+        f"/games/{game_id}/agent_episode", json={"agent": "wizard"}
+    )
     assert response.status_code == 400
 
 

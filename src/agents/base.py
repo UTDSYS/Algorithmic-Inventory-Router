@@ -49,3 +49,47 @@ def run_episode(
         observation = result.observation
         done = result.done
     return EpisodeResult(total=episode_total(daily), daily=tuple(daily))
+
+
+@dataclass(frozen=True)
+class DayRecord:
+    """One played day: the action taken, its cost, and the state it left behind."""
+
+    day: int
+    action: Action
+    cost: CostBreakdown
+    observation: Observation
+
+
+@dataclass(frozen=True)
+class EpisodeTrace:
+    """A full season replay: every day's record plus the episode total."""
+
+    records: tuple[DayRecord, ...]
+    total: CostBreakdown
+
+
+def trace_episode(
+    env: InventoryRoutingEnv, agent: Agent, seed: int | None = None
+) -> EpisodeTrace:
+    """Play an agent through a season, recording each day for later replay."""
+    observation = env.reset(seed)
+    records: list[DayRecord] = []
+    done = False
+    while not done:
+        action = agent.act(observation)
+        result = env.step(action)
+        records.append(
+            DayRecord(
+                day=result.info["day"],
+                action=action,
+                cost=result.info["cost"],
+                observation=result.observation,
+            )
+        )
+        observation = result.observation
+        done = result.done
+    return EpisodeTrace(
+        records=tuple(records),
+        total=episode_total([r.cost for r in records]),
+    )
