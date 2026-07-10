@@ -1,10 +1,10 @@
 import type { RouteView, StateView } from '../api/types'
 import { inventoryHealth } from '../game/health'
-import { pointAlongPath } from '../game/path'
+import { headingAlongPath, pointAlongPath } from '../game/path'
 import { projectPoint, type Point, type ProjectionOptions } from '../game/projection'
 import { storeName, storeShortName } from '../game/store'
 
-const VIEW = 600
+const VIEW = 720
 const OPTS: ProjectionOptions = {
   worldWidth: 100,
   worldHeight: 100,
@@ -38,6 +38,24 @@ export function MapView({ state, routes, progress }: Props) {
 
   return (
     <svg className="map" viewBox={`0 0 ${VIEW} ${VIEW}`} role="img" aria-label="Delivery map">
+      <defs>
+        <filter id="truck-shadow" x="-40%" y="-40%" width="180%" height="180%">
+          <feDropShadow dx="0" dy="2.5" stdDeviation="2" floodColor="#0e1830" floodOpacity="0.35" />
+        </filter>
+      </defs>
+
+      {/* faint reference grid so store distances read at a glance (every 20 world units) */}
+      {[0, 20, 40, 60, 80, 100].map((w) => {
+        const v = projectPoint(w, 0, OPTS).x
+        const h = projectPoint(0, w, OPTS).y
+        return (
+          <g key={`grid${w}`} stroke="var(--line)" strokeWidth={1} strokeOpacity={0.5}>
+            <line x1={v} y1={OPTS.padding} x2={v} y2={VIEW - OPTS.padding} />
+            <line x1={OPTS.padding} y1={h} x2={VIEW - OPTS.padding} y2={h} />
+          </g>
+        )
+      })}
+
       {/* route polylines under everything */}
       {routePaths.map(({ route, points }) => (
         <polyline
@@ -82,11 +100,22 @@ export function MapView({ state, routes, progress }: Props) {
       {/* trucks */}
       {routePaths.map(({ route, points }) => {
         const pos = pointAlongPath(points, progress)
+        const angleDeg = (headingAlongPath(points, progress) * 180) / Math.PI
         const color = TRUCK_COLORS[route.truck_id % TRUCK_COLORS.length]
         return (
           <g key={`t${route.truck_id}`} transform={`translate(${pos.x} ${pos.y})`}>
-            <rect x={-11} y={-7} width={22} height={14} rx={4} fill={color} stroke="#fff" strokeWidth={1.5} />
-            <text className="map__truck mono" x={0} y={3.5} textAnchor="middle">
+            {/* body + cab rotate to face travel direction; label stays upright */}
+            <g transform={`rotate(${angleDeg})`} filter="url(#truck-shadow)">
+              {/* box trailer */}
+              <rect x={-12} y={-7} width={18} height={14} rx={3} fill={color} stroke="#fff" strokeWidth={1.25} />
+              {/* raised highlight strip along the top edge */}
+              <rect x={-11} y={-6} width={16} height={4} rx={2} fill="#fff" fillOpacity={0.28} />
+              {/* cab, leading the direction of travel */}
+              <rect x={6} y={-5} width={7} height={10} rx={2} fill={color} stroke="#fff" strokeWidth={1.25} />
+              {/* windshield accent on the cab */}
+              <rect x={10} y={-3.5} width={2.5} height={7} rx={1} fill="#fff" fillOpacity={0.45} />
+            </g>
+            <text className="map__truck mono" x={0} y={3} textAnchor="middle">
               {route.truck_id}
             </text>
           </g>
