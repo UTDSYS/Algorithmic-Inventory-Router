@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { stepGame } from '../api/client'
 import type { ActionView, CostView, RouteView, StateView } from '../api/types'
 import {
@@ -54,6 +54,11 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
+  // The action captured when Dispatch was pressed. The tween effect reads this
+  // ref (not the live `action` state), so the /step POST is stable and the
+  // effect never re-runs mid-animation — guaranteeing exactly one POST.
+  const dispatchedAction = useRef<ActionView | null>(null)
+
   // Re-initialise when a new game (fresh initial state) arrives.
   useEffect(() => {
     setState(initialState)
@@ -83,7 +88,8 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
       if (p >= 1) {
         if (!fired) {
           fired = true
-          void stepGame(gameId, action)
+          const pending = dispatchedAction.current
+          if (pending) void stepGame(gameId, pending)
             .then((res) => {
               setState(res.state)
               setTotal(res.total_cost)
@@ -106,7 +112,7 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, gameId, action])
+  }, [phase, gameId])
 
   const addStop = useCallback((truckId: number, storeId: number, quantity: number) => {
     setAction((a) => addStopTo(a, truckId, storeId, quantity))
@@ -141,6 +147,7 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
       return
     }
     setError(null)
+    dispatchedAction.current = action
     setProgress(0)
     setPhase('animating')
   }, [phase, done, action, capacity])
