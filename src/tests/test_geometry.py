@@ -189,3 +189,28 @@ def test_matrix_road_geometry_empty_without_road_spec():
     matrix = DistanceMatrix.from_scenario(scenario)
     assert matrix.road_segments() == []
     assert matrix.intersections() == []
+
+
+def test_matrix_exposes_driveways_from_each_point_to_its_connector():
+    scenario = make_scenario([(90.0, 60.0)], depot=(10.0, 40.0), road_spec=ROAD_SPEC)
+    matrix = DistanceMatrix.from_scenario(scenario)
+    # depot first, then each store: (point, connector-on-the-road)
+    assert matrix.driveways() == [
+        ((10.0, 40.0), (10.0, 50.0)),
+        ((90.0, 60.0), (90.0, 50.0)),
+    ]
+
+
+def test_matrix_omits_zero_length_driveway_for_point_on_a_road():
+    # store (50, 60) sits exactly on the x=50 arterial: no driveway to draw.
+    scenario = make_scenario([(50.0, 60.0)], depot=(10.0, 40.0), road_spec=ROAD_SPEC)
+    matrix = DistanceMatrix.from_scenario(scenario)
+    points = [point for point, _ in matrix.driveways()]
+    assert (50.0, 60.0) not in points
+    assert (10.0, 40.0) in points  # the depot still has one
+
+
+def test_matrix_driveways_empty_without_road_spec():
+    scenario = make_scenario([(3.0, 4.0)])
+    matrix = DistanceMatrix.from_scenario(scenario)
+    assert matrix.driveways() == []

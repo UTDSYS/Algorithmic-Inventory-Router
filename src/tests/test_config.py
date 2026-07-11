@@ -129,6 +129,32 @@ def test_default_scenario_store_ids_are_contiguous():
     assert [s.store_id for s in scenario.stores] == list(range(scenario.num_stores))
 
 
+def test_default_scenario_stores_are_hand_placed_off_the_arterials():
+    scenario = default_scenario()
+    arterials = set(scenario.road_spec.arterials)
+    positions = [s.location for s in scenario.stores]
+    # deterministic hand-placed layout, one store fronting each district
+    assert positions == [
+        (32.0, 32.0),
+        (60.0, 18.0),
+        (82.0, 32.0),
+        (68.0, 60.0),
+        (82.0, 82.0),
+        (40.0, 82.0),
+        (18.0, 68.0),
+        (43.0, 43.0),
+    ]
+    # every store sits off both arterial axes, so it has a real driveway
+    for x, y in positions:
+        assert x not in arterials and y not in arterials
+
+
+def test_default_scenario_is_deterministic_across_calls():
+    assert [s.location for s in default_scenario().stores] == [
+        s.location for s in default_scenario().stores
+    ]
+
+
 def test_default_scenario_initial_state_is_valid():
     scenario = default_scenario()
     state = scenario.initial_state()

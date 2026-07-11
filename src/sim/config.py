@@ -10,7 +10,6 @@ See docs/PLAN.md.
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
 
 from sim.state import Fleet, StoreState, WorldState
@@ -123,30 +122,42 @@ class Scenario:
         )
 
 
-_LAYOUT_SEED = 42
+_DEMAND_SEED = 42
+
+# Hand-placed layout: one store fronting each district of the arterial grid,
+# each sitting ~7 units off an arterial (never on one) so it has a real driveway
+# onto the road. Paired with the starting inventories below by index.
+_STORE_LOCATIONS = (
+    (32.0, 32.0),  # SW, fronts x=25
+    (60.0, 18.0),  # S,  fronts y=25
+    (82.0, 32.0),  # SE, fronts x=75
+    (68.0, 60.0),  # E,  fronts x=75
+    (82.0, 82.0),  # NE, fronts x=75
+    (40.0, 82.0),  # N,  fronts y=75
+    (18.0, 68.0),  # NW, fronts x=25
+    (43.0, 43.0),  # centre, fronts x=50
+)
 
 
 def default_scenario() -> Scenario:
     """The single hand-authored map the first version ships with.
 
-    Eight stores scattered across a 100x100 grid with the depot in the
-    bottom-left corner, two trucks of capacity 50 (about 100 units/day) against
-    roughly 80 units/day of expected demand, so the fleet is tight and the
-    player must prioritise. Stockouts (penalty 20) dominate holding cost (1),
-    and travel is charged per unit distance.
+    Eight stores deliberately placed around a 100x100 arterial grid with the
+    depot in the bottom-left corner, two trucks of capacity 50 (about 100
+    units/day) against roughly 80 units/day of expected demand, so the fleet is
+    tight and the player must prioritise. Stockouts (penalty 20) dominate holding
+    cost (1), and travel is charged per unit of road distance.
 
-    Store positions are drawn from a fixed seed (:data:`_LAYOUT_SEED`), so the
-    scatter is irregular but identical on every call.
+    The layout is fixed (see :data:`_STORE_LOCATIONS`): each store fronts a
+    street so the city reads as designed and every store has a driveway onto the
+    road network. Only the daily demand varies, via the seed.
     """
-    rng = random.Random(_LAYOUT_SEED)
-    # One irregular map: random positions, hand-set starting inventories so the
-    # opening stock spread stays deliberate. Positions stay inside [15, 95] on
-    # both axes, clear of the bottom-left depot and the grid edges.
+    # Hand-set starting inventories so the opening stock spread stays deliberate.
     initial_inventories = (20, 18, 22, 20, 15, 25, 20, 20)
     stores = tuple(
         StoreConfig(
             store_id=i,
-            location=(round(rng.uniform(15.0, 95.0), 1), round(rng.uniform(15.0, 95.0), 1)),
+            location=location,
             max_capacity=40,
             initial_inventory=initial,
             holding_cost=1.0,
@@ -154,7 +165,9 @@ def default_scenario() -> Scenario:
             demand_mean=10.0,
             demand_spread=3.0,
         )
-        for i, initial in enumerate(initial_inventories)
+        for i, (location, initial) in enumerate(
+            zip(_STORE_LOCATIONS, initial_inventories)
+        )
     )
     return Scenario(
         name="default",
@@ -164,6 +177,6 @@ def default_scenario() -> Scenario:
         horizon=12,
         travel_cost_per_distance=1.0,
         depot_inventory=1000,
-        seed=_LAYOUT_SEED,
+        seed=_DEMAND_SEED,
         road_spec=RoadSpec(arterials=(25.0, 50.0, 75.0), bounds=(0.0, 100.0)),
     )

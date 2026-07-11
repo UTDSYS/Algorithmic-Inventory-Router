@@ -234,6 +234,17 @@ def test_state_exposes_static_road_geometry():
     assert len(seg) == 2 and len(seg[0]) == 2
 
 
+def test_state_exposes_driveways_for_every_point():
+    state = new_game()["state"]
+    # depot + 8 stores, all placed off the arterials, each with a driveway stub
+    assert len(state["driveways"]) == 1 + default_scenario().num_stores
+    stub = state["driveways"][0]
+    assert len(stub) == 2 and len(stub[0]) == 2 and len(stub[1]) == 2
+    # each stub links a map point to a distinct connector on the road
+    for point, connector in state["driveways"]:
+        assert point != connector
+
+
 def test_agent_episode_routes_carry_road_path():
     game_id = new_game()["game_id"]
     body = client.post(

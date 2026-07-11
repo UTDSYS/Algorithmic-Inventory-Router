@@ -117,6 +117,8 @@ class StateView(BaseModel):
     # Static road geometry for drawing; empty when the scenario has no roads.
     road_segments: list[tuple[Coord, Coord]]
     intersections: list[Coord]
+    # (point, connector) stub linking each store/depot to the road it fronts.
+    driveways: list[tuple[Coord, Coord]]
 
 
 class CostView(BaseModel):
@@ -219,6 +221,7 @@ def _state_view(observation: Observation) -> StateView:
         stores=stores,
         road_segments=matrix.road_segments(),
         intersections=matrix.intersections(),
+        driveways=matrix.driveways(),
     )
 
 

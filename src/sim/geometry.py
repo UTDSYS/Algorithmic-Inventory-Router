@@ -47,6 +47,13 @@ def euclidean(a: tuple[float, float], b: tuple[float, float]) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
+def _same_coord(a: tuple[float, float], b: tuple[float, float]) -> bool:
+    """True when two coordinates coincide (a point already sits on the road)."""
+    return math.isclose(a[0], b[0], abs_tol=1e-9) and math.isclose(
+        a[1], b[1], abs_tol=1e-9
+    )
+
+
 @dataclass(frozen=True)
 class DistanceMatrix:
     """Precomputed all-pairs distances between the depot and every store.
@@ -60,6 +67,8 @@ class DistanceMatrix:
     _matrix: np.ndarray
     _coords: dict[Point, tuple[float, float]]
     _network: "RoadNetwork | None" = None
+    # (point, connector) stub for every attached point that sits off the road.
+    _driveways: tuple[tuple[tuple[float, float], tuple[float, float]], ...] = ()
 
     @classmethod
     def from_scenario(cls, scenario: Scenario) -> "DistanceMatrix":
@@ -71,10 +80,13 @@ class DistanceMatrix:
         matrix = np.zeros((n, n), dtype=float)
 
         network: RoadNetwork | None = None
+        driveways: list[tuple[tuple[float, float], tuple[float, float]]] = []
         if scenario.road_spec is not None:
             network = RoadNetwork(scenario.road_spec)
             for coord in coords:
-                network.attach(coord)
+                connector = network.attach(coord)
+                if not _same_coord(coord, connector):
+                    driveways.append((coord, connector))
 
         for i in range(n):
             for j in range(i + 1, n):
@@ -85,7 +97,11 @@ class DistanceMatrix:
                 matrix[i, j] = d
                 matrix[j, i] = d
         return cls(
-            _index=index, _matrix=matrix, _coords=coord_by_point, _network=network
+            _index=index,
+            _matrix=matrix,
+            _coords=coord_by_point,
+            _network=network,
+            _driveways=tuple(driveways),
         )
 
     def distance(self, a: Point, b: Point) -> float:
@@ -109,6 +125,11 @@ class DistanceMatrix:
     def intersections(self) -> list[tuple[float, float]]:
         """Road intersection points for drawing; empty without a road network."""
         return self._network.intersections() if self._network is not None else []
+
+    def driveways(self) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+        """Each off-road point's ``(point, connector)`` stub onto the network,
+        for drawing; empty without a road network or for points already on a road."""
+        return list(self._driveways)
 
 
 def tour_length(matrix: DistanceMatrix, store_ids: Iterable[int]) -> float:

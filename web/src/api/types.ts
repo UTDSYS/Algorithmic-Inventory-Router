@@ -40,6 +40,8 @@ export interface StateView {
   // Static road geometry for drawing; empty when the scenario has no roads.
   road_segments: RoadSegment[]
   intersections: Coord[]
+  // Short stub linking each store/depot to the road it fronts.
+  driveways: RoadSegment[]
 }
 
 export interface NewGameResponse {

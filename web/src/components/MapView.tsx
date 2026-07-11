@@ -1,4 +1,4 @@
-import type { RouteView, StateView } from '../api/types'
+import type { RoadSegment, RouteView, StateView } from '../api/types'
 import { inventoryHealth } from '../game/health'
 import { headingAlongPath, pointAlongPath } from '../game/path'
 import { projectPoint, type Point, type ProjectionOptions } from '../game/projection'
@@ -22,6 +22,14 @@ interface Props {
 
 export function MapView({ state, routes, progress }: Props) {
   const depot = projectPoint(state.depot_location[0], state.depot_location[1], OPTS)
+  // `?? []` guards against a stale backend that omits the road fields, so a
+  // missing payload can't blank the whole map.
+  const project = ([a, b]: RoadSegment) => ({
+    p1: projectPoint(a[0], a[1], OPTS),
+    p2: projectPoint(b[0], b[1], OPTS),
+  })
+  const roadLines = (state.road_segments ?? []).map(project)
+  const driveways = (state.driveways ?? []).map(project)
   const locations = new Map<number, Point>()
   for (const store of state.stores) {
     locations.set(store.store_id, projectPoint(store.location[0], store.location[1], OPTS))
@@ -49,29 +57,79 @@ export function MapView({ state, routes, progress }: Props) {
         </filter>
       </defs>
 
-      {/* road network: arterials as light street strokes, intersections as dots */}
+      {/* driveways first, UNDER the arterials: short stubs joining each
+          store/depot to the street it fronts, same asphalt look but narrower and
+          without a centre line. Drawing them below the roads lets the arterial
+          cover each stub's inner end, so it reads as a clean T-junction. */}
       <g>
-        {state.road_segments.map(([a, b], i) => {
-          const p1 = projectPoint(a[0], a[1], OPTS)
-          const p2 = projectPoint(b[0], b[1], OPTS)
-          return (
-            <line
-              key={`road${i}`}
-              x1={p1.x}
-              y1={p1.y}
-              x2={p2.x}
-              y2={p2.y}
-              stroke="var(--line)"
-              strokeWidth={6}
-              strokeOpacity={0.7}
-              strokeLinecap="round"
-            />
-          )
-        })}
-        {state.intersections.map(([x, y], i) => {
-          const p = projectPoint(x, y, OPTS)
-          return <circle key={`x${i}`} cx={p.x} cy={p.y} r={2.5} fill="var(--ink-40)" />
-        })}
+        {driveways.map(({ p1, p2 }, i) => (
+          <line
+            key={`drive-casing${i}`}
+            x1={p1.x}
+            y1={p1.y}
+            x2={p2.x}
+            y2={p2.y}
+            stroke="#9aa4b4"
+            strokeWidth={10}
+            strokeLinecap="round"
+          />
+        ))}
+        {driveways.map(({ p1, p2 }, i) => (
+          <line
+            key={`drive-surface${i}`}
+            x1={p1.x}
+            y1={p1.y}
+            x2={p2.x}
+            y2={p2.y}
+            stroke="#d7dce4"
+            strokeWidth={6}
+            strokeLinecap="round"
+          />
+        ))}
+      </g>
+
+      {/* road network drawn as real streets: darker casing edges, an asphalt
+          surface, then a dashed centre line. Each layer sweeps every segment so
+          the asphalt covers the casings at crossings, leaving clean junctions.
+          Drawn after the driveways so the arterials sit on top of the stubs. */}
+      <g>
+        {roadLines.map(({ p1, p2 }, i) => (
+          <line
+            key={`road-casing${i}`}
+            x1={p1.x}
+            y1={p1.y}
+            x2={p2.x}
+            y2={p2.y}
+            stroke="#9aa4b4"
+            strokeWidth={16}
+            strokeLinecap="round"
+          />
+        ))}
+        {roadLines.map(({ p1, p2 }, i) => (
+          <line
+            key={`road-surface${i}`}
+            x1={p1.x}
+            y1={p1.y}
+            x2={p2.x}
+            y2={p2.y}
+            stroke="#d7dce4"
+            strokeWidth={12}
+            strokeLinecap="round"
+          />
+        ))}
+        {roadLines.map(({ p1, p2 }, i) => (
+          <line
+            key={`road-centre${i}`}
+            x1={p1.x}
+            y1={p1.y}
+            x2={p2.x}
+            y2={p2.y}
+            stroke="#fff"
+            strokeWidth={1.75}
+            strokeDasharray="7 10"
+            strokeOpacity={0.9}
+          />
+        ))}
       </g>
 
       {/* route polylines under everything */}
