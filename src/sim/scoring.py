@@ -6,7 +6,7 @@ the resulting per-store ending inventory and shortfall, plus the travel cost fro
 :mod:`sim.geometry`, to :func:`price_day`. The day's cost is
 ``travel + holding + stockout`` and the reward is its negative.
 
-See docs/superpowers/specs/2026-07-08-sim-state-config-design.md.
+See docs/PLAN.md.
 """
 
 from __future__ import annotations
