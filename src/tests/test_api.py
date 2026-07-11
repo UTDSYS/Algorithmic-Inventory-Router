@@ -221,6 +221,50 @@ def test_agent_episode_unknown_agent_returns_400():
     assert response.status_code == 400
 
 
+# --- road geometry (item 10) ---------------------------------------------
+
+
+def test_state_exposes_static_road_geometry():
+    state = new_game()["state"]
+    # default scenario has arterials at 25/50/75: 6 segments, 9 intersections
+    assert len(state["road_segments"]) == 6
+    assert len(state["intersections"]) == 9
+    # each segment is a pair of [x, y] coordinates
+    seg = state["road_segments"][0]
+    assert len(seg) == 2 and len(seg[0]) == 2
+
+
+def test_agent_episode_routes_carry_road_path():
+    game_id = new_game()["game_id"]
+    body = client.post(
+        f"/games/{game_id}/agent_episode", json={"agent": "nearest_neighbour"}
+    ).json()
+    # find a day whose first route actually visits a store
+    served = next(
+        route
+        for day in body["days"]
+        for route in day["action"]["routes"]
+        if route["stops"]
+    )
+    path = served["path"]
+    assert len(path) >= 2
+    depot = default_scenario().depot_location
+    # a non-empty tour is a closed loop starting and ending at the depot
+    assert tuple(path[0]) == depot
+    assert tuple(path[-1]) == depot
+
+
+def test_agent_episode_empty_route_has_empty_path():
+    game_id = new_game()["game_id"]
+    body = client.post(
+        f"/games/{game_id}/agent_episode", json={"agent": "greedy"}
+    ).json()
+    for day in body["days"]:
+        for route in day["action"]["routes"]:
+            if not route["stops"]:
+                assert route["path"] == []
+
+
 def test_seed_override_changes_demand():
     a = new_game(seed=1)
     b = new_game(seed=2)

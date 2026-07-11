@@ -28,11 +28,16 @@ export function MapView({ state, routes, progress }: Props) {
   }
 
   const routePaths = routes.map((route) => {
-    const points: Point[] = [
-      depot,
-      ...route.stops.map((s) => locations.get(s.store_id)!).filter(Boolean),
-      depot,
-    ]
+    // Prefer the backend's road polyline (agent runs); fall back to straight
+    // depot -> stops -> depot lines for routes the human builds client-side.
+    const points: Point[] =
+      route.path && route.path.length > 0
+        ? route.path.map(([x, y]) => projectPoint(x, y, OPTS))
+        : [
+            depot,
+            ...route.stops.map((s) => locations.get(s.store_id)!).filter(Boolean),
+            depot,
+          ]
     return { route, points }
   })
 
@@ -44,17 +49,30 @@ export function MapView({ state, routes, progress }: Props) {
         </filter>
       </defs>
 
-      {/* faint reference grid so store distances read at a glance (every 20 world units) */}
-      {[0, 20, 40, 60, 80, 100].map((w) => {
-        const v = projectPoint(w, 0, OPTS).x
-        const h = projectPoint(0, w, OPTS).y
-        return (
-          <g key={`grid${w}`} stroke="var(--line)" strokeWidth={1} strokeOpacity={0.5}>
-            <line x1={v} y1={OPTS.padding} x2={v} y2={VIEW - OPTS.padding} />
-            <line x1={OPTS.padding} y1={h} x2={VIEW - OPTS.padding} y2={h} />
-          </g>
-        )
-      })}
+      {/* road network: arterials as light street strokes, intersections as dots */}
+      <g>
+        {state.road_segments.map(([a, b], i) => {
+          const p1 = projectPoint(a[0], a[1], OPTS)
+          const p2 = projectPoint(b[0], b[1], OPTS)
+          return (
+            <line
+              key={`road${i}`}
+              x1={p1.x}
+              y1={p1.y}
+              x2={p2.x}
+              y2={p2.y}
+              stroke="var(--line)"
+              strokeWidth={6}
+              strokeOpacity={0.7}
+              strokeLinecap="round"
+            />
+          )
+        })}
+        {state.intersections.map(([x, y], i) => {
+          const p = projectPoint(x, y, OPTS)
+          return <circle key={`x${i}`} cx={p.x} cy={p.y} r={2.5} fill="var(--ink-40)" />
+        })}
+      </g>
 
       {/* route polylines under everything */}
       {routePaths.map(({ route, points }) => (

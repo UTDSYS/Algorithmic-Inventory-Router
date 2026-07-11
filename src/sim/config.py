@@ -17,6 +17,33 @@ from sim.state import Fleet, StoreState, WorldState
 
 
 @dataclass(frozen=True)
+class RoadSpec:
+    """Sparse arterial road grid the trucks drive on.
+
+    ``arterials`` are the positions of the straight roads on both axes: a
+    vertical road at each ``x`` and a horizontal road at each ``y``, every road
+    extended across the whole map. ``bounds`` is the ``(min, max)`` extent the
+    roads span on both axes. The intersections of these roads plus their edge
+    endpoints are the nodes of the road graph built in :mod:`sim.roads`.
+    """
+
+    arterials: tuple[float, ...]
+    bounds: tuple[float, float]
+
+    def __post_init__(self) -> None:
+        if not self.arterials:
+            raise ValueError("road spec must have at least one arterial")
+        lo, hi = self.bounds
+        if lo >= hi:
+            raise ValueError(f"road bounds must be increasing, got {self.bounds}")
+        for position in self.arterials:
+            if not lo <= position <= hi:
+                raise ValueError(
+                    f"arterial {position} lies outside bounds {self.bounds}"
+                )
+
+
+@dataclass(frozen=True)
 class StoreConfig:
     """Fixed parameters of one store. Its inventory is dynamic and lives in
     :class:`sim.state.StoreState`; everything here stays constant for a game."""
@@ -43,6 +70,7 @@ class Scenario:
     travel_cost_per_distance: float
     depot_inventory: int
     seed: int
+    road_spec: RoadSpec | None = None
 
     def __post_init__(self) -> None:
         if not self.stores:
@@ -137,4 +165,5 @@ def default_scenario() -> Scenario:
         travel_cost_per_distance=1.0,
         depot_inventory=1000,
         seed=_LAYOUT_SEED,
+        road_spec=RoadSpec(arterials=(25.0, 50.0, 75.0), bounds=(0.0, 100.0)),
     )

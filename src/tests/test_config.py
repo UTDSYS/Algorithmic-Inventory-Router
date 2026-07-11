@@ -4,7 +4,7 @@ import dataclasses
 
 import pytest
 
-from sim.config import Scenario, StoreConfig, default_scenario
+from sim.config import RoadSpec, Scenario, StoreConfig, default_scenario
 from sim.state import Fleet, WorldState
 
 
@@ -111,6 +111,17 @@ def test_default_scenario_within_plan_ranges():
     assert 6 <= scenario.num_stores <= 10
     assert scenario.fleet.num_trucks == 2
     assert 10 <= scenario.horizon <= 14
+
+
+def test_scenario_road_spec_defaults_to_none():
+    assert make_scenario().road_spec is None
+
+
+def test_default_scenario_has_arterial_road_spec():
+    spec = default_scenario().road_spec
+    assert isinstance(spec, RoadSpec)
+    assert spec.arterials == (25.0, 50.0, 75.0)
+    assert spec.bounds == (0.0, 100.0)
 
 
 def test_default_scenario_store_ids_are_contiguous():

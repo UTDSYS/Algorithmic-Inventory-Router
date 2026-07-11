@@ -4,18 +4,19 @@ import math
 
 import pytest
 
-from sim.config import Scenario, StoreConfig
+from sim.config import RoadSpec, Scenario, StoreConfig
 from sim.geometry import (
     DEPOT,
     DistanceMatrix,
     euclidean,
+    route_path,
     tour_length,
     travel_cost,
 )
 from sim.state import Action, Fleet, Route, Stop
 
 
-def make_scenario(store_locations, depot=(0.0, 0.0)):
+def make_scenario(store_locations, depot=(0.0, 0.0), road_spec=None):
     stores = tuple(
         StoreConfig(
             store_id=i,
@@ -38,7 +39,11 @@ def make_scenario(store_locations, depot=(0.0, 0.0)):
         travel_cost_per_distance=1.0,
         depot_inventory=500,
         seed=1,
+        road_spec=road_spec,
     )
+
+
+ROAD_SPEC = RoadSpec(arterials=(25.0, 50.0, 75.0), bounds=(0.0, 100.0))
 
 
 def test_euclidean_basic():
@@ -112,3 +117,75 @@ def test_travel_cost_empty_action_is_zero():
     scenario = make_scenario([(3.0, 4.0)])
     matrix = DistanceMatrix.from_scenario(scenario)
     assert travel_cost(matrix, Action(routes=()), cost_per_distance=1.0) == 0.0
+
+
+# --- road-network distances (item 10) ------------------------------------
+
+
+def test_from_scenario_uses_road_distance_when_road_spec_present():
+    # depot (10,40) attaches to y=50 at (10,50); store (90,60) attaches at
+    # (90,50). Road path: 10 (driveway) + 80 (along y=50) + 10 (driveway) = 100,
+    # well above the straight-line distance of ~82.46.
+    scenario = make_scenario([(90.0, 60.0)], depot=(10.0, 40.0), road_spec=ROAD_SPEC)
+    matrix = DistanceMatrix.from_scenario(scenario)
+    assert matrix.distance(DEPOT, 0) == pytest.approx(100.0)
+    assert matrix.distance(DEPOT, 0) > euclidean((10.0, 40.0), (90.0, 60.0))
+
+
+def test_road_distance_is_symmetric():
+    scenario = make_scenario([(90.0, 60.0)], depot=(10.0, 40.0), road_spec=ROAD_SPEC)
+    matrix = DistanceMatrix.from_scenario(scenario)
+    assert matrix.distance(DEPOT, 0) == pytest.approx(matrix.distance(0, DEPOT))
+
+
+def test_path_follows_roads_between_two_points():
+    scenario = make_scenario([(90.0, 60.0)], depot=(10.0, 40.0), road_spec=ROAD_SPEC)
+    matrix = DistanceMatrix.from_scenario(scenario)
+    path = matrix.path(DEPOT, 0)
+    assert path[0] == (10.0, 40.0)
+    assert path[-1] == (90.0, 60.0)
+    # every hop is axis-aligned (a straight road leg or a perpendicular driveway)
+    for a, b in zip(path, path[1:]):
+        assert a[0] == b[0] or a[1] == b[1]
+
+
+def test_path_is_straight_line_without_road_spec():
+    scenario = make_scenario([(3.0, 4.0)], depot=(0.0, 0.0))
+    matrix = DistanceMatrix.from_scenario(scenario)
+    assert matrix.path(DEPOT, 0) == [(0.0, 0.0), (3.0, 4.0)]
+
+
+def test_route_path_concatenates_legs_into_a_closed_tour():
+    scenario = make_scenario([(90.0, 60.0)], depot=(10.0, 40.0), road_spec=ROAD_SPEC)
+    matrix = DistanceMatrix.from_scenario(scenario)
+    path = route_path(matrix, [0])
+    # a closed tour starts and ends at the depot
+    assert path[0] == (10.0, 40.0)
+    assert path[-1] == (10.0, 40.0)
+    # the store is visited somewhere along the way
+    assert (90.0, 60.0) in path
+    # no duplicated coordinate where consecutive legs meet
+    for a, b in zip(path, path[1:]):
+        assert a != b
+
+
+def test_route_path_empty_route_is_empty():
+    scenario = make_scenario([(90.0, 60.0)], depot=(10.0, 40.0), road_spec=ROAD_SPEC)
+    matrix = DistanceMatrix.from_scenario(scenario)
+    assert route_path(matrix, []) == []
+
+
+def test_matrix_exposes_road_geometry_for_drawing():
+    scenario = make_scenario([(90.0, 60.0)], depot=(10.0, 40.0), road_spec=ROAD_SPEC)
+    matrix = DistanceMatrix.from_scenario(scenario)
+    assert len(matrix.road_segments()) == 6  # three arterials on each axis
+    assert set(matrix.intersections()) == {
+        (x, y) for x in (25.0, 50.0, 75.0) for y in (25.0, 50.0, 75.0)
+    }
+
+
+def test_matrix_road_geometry_empty_without_road_spec():
+    scenario = make_scenario([(3.0, 4.0)])
+    matrix = DistanceMatrix.from_scenario(scenario)
+    assert matrix.road_segments() == []
+    assert matrix.intersections() == []
