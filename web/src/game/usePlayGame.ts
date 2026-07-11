@@ -59,8 +59,14 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
   // effect never re-runs mid-animation — guaranteeing exactly one POST.
   const dispatchedAction = useRef<ActionView | null>(null)
 
+  // Bumped on every re-init. A dispatch captures the current runId when it
+  // fires /step and ignores its own response if a New Game (re-init) has since
+  // bumped it — preventing a stale POST from clobbering a fresh game's state.
+  const runId = useRef(0)
+
   // Re-initialise when a new game (fresh initial state) arrives.
   useEffect(() => {
+    runId.current += 1
     setState(initialState)
     setDay(0)
     setTotal(ZERO_COST)
@@ -89,8 +95,10 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
         if (!fired) {
           fired = true
           const pending = dispatchedAction.current
+          const myRun = runId.current
           if (pending) void stepGame(gameId, pending)
             .then((res) => {
+              if (runId.current !== myRun) return
               setState(res.state)
               setTotal(res.total_cost)
               setLastCost(res.cost)
@@ -101,6 +109,7 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
               setPhase('building')
             })
             .catch((e: unknown) => {
+              if (runId.current !== myRun) return
               setError(e instanceof Error ? e.message : 'Dispatch failed')
               setProgress(0)
               setPhase('building')
