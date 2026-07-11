@@ -1,12 +1,24 @@
-import type { AgentName, CostView } from '../api/types'
-import { formatCost } from '../game/format'
+import type { AgentName, CostView, StoreView } from '../api/types'
+import type { PlayGame } from '../game/usePlayGame'
+import { CostBreakdown } from './CostBreakdown'
+import { RouteBuilder } from './RouteBuilder'
+import { ScorePanel } from './ScorePanel'
+
+type Mode = 'play' | 'watch'
 
 interface Props {
+  // shell
   seed: string
   onSeedChange: (value: string) => void
   onNewGame: () => void
-  onRunAgent: (agent: AgentName) => void
   busy: boolean
+  mode: Mode
+  onModeChange: (mode: Mode) => void
+  // play
+  stores: StoreView[]
+  game: PlayGame
+  // watch
+  onRunAgent: (agent: AgentName) => void
   hasEpisode: boolean
   playing: boolean
   atEnd: boolean
@@ -21,17 +33,8 @@ interface Props {
 
 const SPEEDS = [0.5, 1, 2, 4]
 
-function CostRow({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
-  return (
-    <div className={strong ? 'cost__row cost__row--total' : 'cost__row'}>
-      <span className="cost__label">{label}</span>
-      <span className="cost__value mono">{formatCost(value)}</span>
-    </div>
-  )
-}
-
 export function ControlPanel(props: Props) {
-  const { cost } = props
+  const { game, mode } = props
   return (
     <aside className="panel">
       <section className="panel__block">
@@ -53,64 +56,105 @@ export function ControlPanel(props: Props) {
       </section>
 
       <section className="panel__block">
-        <span className="eyebrow">Watch a baseline</span>
-        <div className="panel__row">
+        <div className="mode-toggle" role="group" aria-label="Mode">
           <button
-            className="btn btn--primary"
-            onClick={() => props.onRunAgent('greedy')}
-            disabled={props.busy}
+            className={mode === 'play' ? 'mode-toggle__btn mode-toggle__btn--active' : 'mode-toggle__btn'}
+            onClick={() => props.onModeChange('play')}
           >
-            Run Greedy
+            Play
           </button>
           <button
-            className="btn btn--primary"
-            onClick={() => props.onRunAgent('nearest_neighbour')}
-            disabled={props.busy}
+            className={mode === 'watch' ? 'mode-toggle__btn mode-toggle__btn--active' : 'mode-toggle__btn'}
+            onClick={() => props.onModeChange('watch')}
           >
-            Run Nearest
+            Watch
           </button>
         </div>
       </section>
 
-      <section className="panel__block">
-        <span className="eyebrow">Playback</span>
-        <div className="panel__row panel__row--controls">
-          {props.playing ? (
-            <button className="btn btn--icon" onClick={props.onPause} disabled={!props.hasEpisode} aria-label="Pause">
-              ⏸
-            </button>
-          ) : (
-            <button className="btn btn--icon" onClick={props.onPlay} disabled={!props.hasEpisode} aria-label="Play">
-              ⏵
-            </button>
-          )}
-          <button className="btn btn--icon" onClick={props.onStep} disabled={!props.hasEpisode || props.atEnd} aria-label="Step one day">
-            ⏭
-          </button>
-          <button className="btn btn--icon" onClick={props.onReset} disabled={!props.hasEpisode} aria-label="Reset">
-            ↺
-          </button>
-          <div className="speed" role="group" aria-label="Speed">
-            {SPEEDS.map((s) => (
+      {mode === 'play' ? (
+        <>
+          <RouteBuilder
+            stores={props.stores}
+            action={game.action}
+            capacity={game.capacity}
+            disabled={game.phase === 'animating' || game.done}
+            error={game.error}
+            onAddStop={game.addStop}
+            onRemoveStop={game.removeStop}
+            onMoveStop={game.moveStop}
+            onSetQty={game.setQty}
+            onClear={game.clearDay}
+            onDispatch={game.dispatch}
+          />
+          <ScorePanel
+            day={game.day}
+            horizon={game.horizon}
+            done={game.done}
+            lastCost={game.lastCost}
+            total={game.total}
+          />
+        </>
+      ) : (
+        <>
+          <section className="panel__block">
+            <span className="eyebrow">Watch a baseline</span>
+            <div className="panel__row">
               <button
-                key={s}
-                className={s === props.speed ? 'speed__btn speed__btn--active mono' : 'speed__btn mono'}
-                onClick={() => props.onSpeed(s)}
+                className="btn btn--primary"
+                onClick={() => props.onRunAgent('greedy')}
+                disabled={props.busy}
               >
-                {s}×
+                Run Greedy
               </button>
-            ))}
-          </div>
-        </div>
-      </section>
+              <button
+                className="btn btn--primary"
+                onClick={() => props.onRunAgent('nearest_neighbour')}
+                disabled={props.busy}
+              >
+                Run Nearest
+              </button>
+            </div>
+          </section>
 
-      <section className="panel__block panel__block--cost">
-        <span className="eyebrow">Cost</span>
-        <CostRow label="Travel" value={cost.travel} />
-        <CostRow label="Holding" value={cost.holding} />
-        <CostRow label="Stockout" value={cost.stockout} />
-        <CostRow label="Total" value={cost.total} strong />
-      </section>
+          <section className="panel__block">
+            <span className="eyebrow">Playback</span>
+            <div className="panel__row panel__row--controls">
+              {props.playing ? (
+                <button className="btn btn--icon" onClick={props.onPause} disabled={!props.hasEpisode} aria-label="Pause">
+                  ⏸
+                </button>
+              ) : (
+                <button className="btn btn--icon" onClick={props.onPlay} disabled={!props.hasEpisode} aria-label="Play">
+                  ⏵
+                </button>
+              )}
+              <button className="btn btn--icon" onClick={props.onStep} disabled={!props.hasEpisode || props.atEnd} aria-label="Step one day">
+                ⏭
+              </button>
+              <button className="btn btn--icon" onClick={props.onReset} disabled={!props.hasEpisode} aria-label="Reset">
+                ↺
+              </button>
+              <div className="speed" role="group" aria-label="Speed">
+                {SPEEDS.map((s) => (
+                  <button
+                    key={s}
+                    className={s === props.speed ? 'speed__btn speed__btn--active mono' : 'speed__btn mono'}
+                    onClick={() => props.onSpeed(s)}
+                  >
+                    {s}×
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="panel__block panel__block--cost">
+            <span className="eyebrow">Cost</span>
+            <CostBreakdown cost={props.cost} />
+          </section>
+        </>
+      )}
     </aside>
   )
 }

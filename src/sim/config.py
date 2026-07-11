@@ -5,7 +5,7 @@ horizon, cost model, and seed. Only the daily demand realization varies per
 episode (see docs/PLAN.md). :func:`default_scenario` returns the single map the
 first playable version ships with.
 
-See docs/superpowers/specs/2026-07-08-sim-state-config-design.md.
+See docs/PLAN.md.
 """
 
 from __future__ import annotations

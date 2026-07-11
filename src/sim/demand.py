@@ -10,7 +10,7 @@ non-negative -- a helpful but imperfect hint.
 The distribution is fixed by the scenario; only the numbers it rolls change with
 the seed.
 
-See docs/superpowers/specs/2026-07-08-sim-state-config-design.md.
+See docs/PLAN.md.
 """
 
 from __future__ import annotations

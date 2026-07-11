@@ -6,7 +6,7 @@ integer ``store_id``; the depot is the :data:`DEPOT` sentinel. A
 from a :class:`sim.config.Scenario`; the environment and agents then look
 distances up rather than recomputing them.
 
-See docs/PLAN.md and docs/superpowers/specs/2026-07-08-sim-state-config-design.md.
+See docs/PLAN.md.
 """
 
 from __future__ import annotations

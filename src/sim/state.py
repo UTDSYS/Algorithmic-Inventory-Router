@@ -9,7 +9,7 @@ Fixed world parameters (locations, capacities, costs, demand distribution)
 live in :mod:`sim.config`, not here. This module holds only structural shapes
 and the values that change day to day.
 
-See docs/PLAN.md and docs/superpowers/specs/2026-07-08-sim-state-config-design.md.
+See docs/PLAN.md.
 """
 
 from __future__ import annotations

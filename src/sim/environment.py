@@ -15,7 +15,7 @@ Depot supply is unlimited in the first version -- ``depot_inventory`` is carried
 as an observable value but is not consumed, matching the plan's cost model
 (travel + holding + stockout, with no depot stockout).
 
-See docs/superpowers/specs/2026-07-08-sim-state-config-design.md.
+See docs/PLAN.md.
 """
 
 from __future__ import annotations
