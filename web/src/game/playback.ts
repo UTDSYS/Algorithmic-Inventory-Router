@@ -1,5 +1,8 @@
 import type { CostView, DayView } from '../api/types'
 
+/** Base time to animate one day at 1x, in ms. Shared by watch and play. */
+export const DAY_MS = 3500
+
 /** Sum the costs of the first `completed` days into a running total. */
 export function cumulativeCost(days: DayView[], completed: number): CostView {
   const total: CostView = { travel: 0, holding: 0, stockout: 0, total: 0, reward: 0 }
