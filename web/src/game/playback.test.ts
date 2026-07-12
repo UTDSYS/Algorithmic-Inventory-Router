@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import type { DayView } from '../api/types'
-import { clampDay, cumulativeCost } from './playback'
+import { describe, expect, it, test } from 'vitest'
+import type { CostView, DayView, StateView } from '../api/types'
+import { buildHumanEpisode, clampDay, cumulativeCost } from './playback'
 
 function day(travel: number, holding: number, stockout: number): DayView {
   return {
@@ -32,5 +32,32 @@ describe('clampDay', () => {
     expect(clampDay(-1, 3)).toBe(0)
     expect(clampDay(5, 3)).toBe(3)
     expect(clampDay(2, 3)).toBe(2)
+  })
+})
+
+const humanCost = (total: number): CostView => ({
+  travel: total, holding: 0, stockout: 0, total, reward: -total,
+})
+const humanState = { day: 1 } as unknown as StateView
+const humanDay = (d: number): DayView => ({
+  day: d, action: { routes: [] }, cost: humanCost(d + 1), state: humanState,
+})
+
+describe('buildHumanEpisode', () => {
+  test('buildHumanEpisode returns null before the season is done', () => {
+    expect(buildHumanEpisode([humanDay(0)], humanCost(1), false, 0)).toBeNull()
+  })
+
+  test('buildHumanEpisode returns null with no recorded days', () => {
+    expect(buildHumanEpisode([], humanCost(0), true, 0)).toBeNull()
+  })
+
+  test('buildHumanEpisode wraps recorded days as the you-episode', () => {
+    const ep = buildHumanEpisode([humanDay(0), humanDay(1)], humanCost(5), true, 7)
+    expect(ep).not.toBeNull()
+    expect(ep!.agent).toBe('you')
+    expect(ep!.seed).toBe(7)
+    expect(ep!.days).toHaveLength(2)
+    expect(ep!.total_cost).toEqual(humanCost(5))
   })
 })
