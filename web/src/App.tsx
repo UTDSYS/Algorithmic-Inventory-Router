@@ -78,6 +78,14 @@ function App() {
     }
   }
 
+  const handleReplaySeason = () => {
+    if (!game.episode) return
+    setAgent(null)
+    autoPlay.current = true
+    setEpisode(game.episode)
+    setMode('watch')
+  }
+
   const handleRunRace = async () => {
     if (!gameId) return
     setBusy(true)
@@ -112,7 +120,14 @@ function App() {
   const day = mode === 'play' ? game.day : episode ? playback.completedDays : 0
   const horizon = state?.horizon ?? 0
   const atEnd = playback.completedDays >= playback.horizon
-  const agentLabel = mode === 'watch' && agent ? AGENT_LABELS[agent] : null
+  const agentLabel =
+    mode === 'watch'
+      ? agent
+        ? AGENT_LABELS[agent]
+        : episode?.agent === 'you'
+          ? 'You'
+          : null
+      : null
 
   return (
     <div className="app">
@@ -141,6 +156,8 @@ function App() {
               stores={state.stores}
               game={game}
               onRunAgent={handleRunAgent}
+              onReplaySeason={handleReplaySeason}
+              canReplaySeason={game.done && game.episode != null}
               hasEpisode={episode != null}
               playing={playback.playing}
               atEnd={atEnd}

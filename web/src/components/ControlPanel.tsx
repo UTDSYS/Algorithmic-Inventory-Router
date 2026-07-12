@@ -19,6 +19,8 @@ interface Props {
   game: PlayGame
   // watch
   onRunAgent: (agent: AgentName) => void
+  onReplaySeason: () => void
+  canReplaySeason: boolean
   hasEpisode: boolean
   playing: boolean
   atEnd: boolean
@@ -111,6 +113,13 @@ export function ControlPanel(props: Props) {
             lastCost={game.lastCost}
             total={game.total}
           />
+          {props.canReplaySeason && (
+            <section className="panel__block">
+              <button className="btn btn--ghost" onClick={props.onReplaySeason}>
+                Replay my season
+              </button>
+            </section>
+          )}
         </>
       )}
 
