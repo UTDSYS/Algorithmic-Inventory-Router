@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,8 +23,18 @@ from agents.greedy import GreedyAgent
 from agents.nearest_neighbour import NearestNeighbourAgent
 from sim.config import Scenario, default_scenario
 from sim.environment import InventoryRoutingEnv, Observation
+from sim.geometry import DistanceMatrix, route_path
 from sim.scoring import CostBreakdown
 from sim.state import Action, Route, Stop
+
+# A point on the map: [x, y] world coordinates, mirrored as `Coord` on the client.
+Coord = tuple[float, float]
+
+
+@lru_cache(maxsize=None)
+def _matrix_for(scenario: Scenario) -> DistanceMatrix:
+    """Distance matrix (and road geometry) for a scenario, built once per scenario."""
+    return DistanceMatrix.from_scenario(scenario)
 
 app = FastAPI(title="Inventory Routing Game")
 
@@ -103,6 +114,11 @@ class StateView(BaseModel):
     travel_cost_per_distance: float
     fleet: FleetView
     stores: list[StoreView]
+    # Static road geometry for drawing; empty when the scenario has no roads.
+    road_segments: list[tuple[Coord, Coord]]
+    intersections: list[Coord]
+    # (point, connector) stub linking each store/depot to the road it fronts.
+    driveways: list[tuple[Coord, Coord]]
 
 
 class CostView(BaseModel):
@@ -140,6 +156,8 @@ class StopView(BaseModel):
 class RouteView(BaseModel):
     truck_id: int
     stops: list[StopView]
+    # Full road polyline depot -> stops -> depot; empty for an idle truck.
+    path: list[Coord] = []
 
 
 class ActionView(BaseModel):
@@ -177,6 +195,7 @@ def _state_view(observation: Observation) -> StateView:
     scenario = observation.scenario
     state = observation.state
     forecasts = state.forecasts
+    matrix = _matrix_for(scenario)
     stores = [
         StoreView(
             store_id=cfg.store_id,
@@ -200,15 +219,19 @@ def _state_view(observation: Observation) -> StateView:
             num_trucks=scenario.fleet.num_trucks, capacity=scenario.fleet.capacity
         ),
         stores=stores,
+        road_segments=matrix.road_segments(),
+        intersections=matrix.intersections(),
+        driveways=matrix.driveways(),
     )
 
 
-def _action_view(action: Action) -> ActionView:
+def _action_view(action: Action, matrix: DistanceMatrix) -> ActionView:
     return ActionView(
         routes=[
             RouteView(
                 truck_id=route.truck_id,
                 stops=[StopView(store_id=s.store_id, quantity=s.quantity) for s in route.stops],
+                path=route_path(matrix, [s.store_id for s in route.stops]),
             )
             for route in action.routes
         ]
@@ -291,13 +314,14 @@ def run_agent_episode(game_id: str, request: BaselineRequest) -> AgentEpisodeRes
     trace = trace_episode(
         InventoryRoutingEnv(session.scenario), agent_cls(), seed=session.seed
     )
+    matrix = _matrix_for(session.scenario)
     return AgentEpisodeResponse(
         agent=request.agent,
         seed=session.seed,
         days=[
             DayView(
                 day=record.day,
-                action=_action_view(record.action),
+                action=_action_view(record.action, matrix),
                 cost=_cost_view(record.cost),
                 state=_state_view(record.observation),
             )

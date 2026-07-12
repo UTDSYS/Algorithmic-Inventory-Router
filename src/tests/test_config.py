@@ -4,7 +4,7 @@ import dataclasses
 
 import pytest
 
-from sim.config import Scenario, StoreConfig, default_scenario
+from sim.config import RoadSpec, Scenario, StoreConfig, default_scenario
 from sim.state import Fleet, WorldState
 
 
@@ -113,9 +113,46 @@ def test_default_scenario_within_plan_ranges():
     assert 10 <= scenario.horizon <= 14
 
 
+def test_scenario_road_spec_defaults_to_none():
+    assert make_scenario().road_spec is None
+
+
+def test_default_scenario_has_arterial_road_spec():
+    spec = default_scenario().road_spec
+    assert isinstance(spec, RoadSpec)
+    assert spec.arterials == (25.0, 50.0, 75.0)
+    assert spec.bounds == (0.0, 100.0)
+
+
 def test_default_scenario_store_ids_are_contiguous():
     scenario = default_scenario()
     assert [s.store_id for s in scenario.stores] == list(range(scenario.num_stores))
+
+
+def test_default_scenario_stores_are_hand_placed_off_the_arterials():
+    scenario = default_scenario()
+    arterials = set(scenario.road_spec.arterials)
+    positions = [s.location for s in scenario.stores]
+    # deterministic hand-placed layout, one store fronting each district
+    assert positions == [
+        (32.0, 32.0),
+        (60.0, 18.0),
+        (82.0, 32.0),
+        (68.0, 60.0),
+        (82.0, 82.0),
+        (40.0, 82.0),
+        (18.0, 68.0),
+        (43.0, 43.0),
+    ]
+    # every store sits off both arterial axes, so it has a real driveway
+    for x, y in positions:
+        assert x not in arterials and y not in arterials
+
+
+def test_default_scenario_is_deterministic_across_calls():
+    assert [s.location for s in default_scenario().stores] == [
+        s.location for s in default_scenario().stores
+    ]
 
 
 def test_default_scenario_initial_state_is_valid():

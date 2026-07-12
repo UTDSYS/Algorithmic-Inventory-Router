@@ -2,6 +2,9 @@
 
 export type Coord = [number, number]
 
+// A straight arterial road: its two endpoints in world coordinates.
+export type RoadSegment = [Coord, Coord]
+
 export interface CostView {
   travel: number
   holding: number
@@ -34,6 +37,11 @@ export interface StateView {
   travel_cost_per_distance: number
   fleet: FleetView
   stores: StoreView[]
+  // Static road geometry for drawing; empty when the scenario has no roads.
+  road_segments: RoadSegment[]
+  intersections: Coord[]
+  // Short stub linking each store/depot to the road it fronts.
+  driveways: RoadSegment[]
 }
 
 export interface NewGameResponse {
@@ -50,6 +58,9 @@ export interface StopView {
 export interface RouteView {
   truck_id: number
   stops: StopView[]
+  // Full road polyline depot -> stops -> depot. Present on backend-run agent
+  // routes; absent for routes the human builds client-side (drawn straight).
+  path?: Coord[]
 }
 
 export interface ActionView {
