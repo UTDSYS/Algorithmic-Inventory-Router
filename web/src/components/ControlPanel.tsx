@@ -4,7 +4,7 @@ import { CostBreakdown } from './CostBreakdown'
 import { RouteBuilder } from './RouteBuilder'
 import { ScorePanel } from './ScorePanel'
 
-type Mode = 'play' | 'watch'
+type Mode = 'play' | 'watch' | 'compare'
 
 interface Props {
   // shell
@@ -19,6 +19,8 @@ interface Props {
   game: PlayGame
   // watch
   onRunAgent: (agent: AgentName) => void
+  onReplaySeason: () => void
+  canReplaySeason: boolean
   hasEpisode: boolean
   playing: boolean
   atEnd: boolean
@@ -29,6 +31,17 @@ interface Props {
   onReset: () => void
   onSpeed: (s: number) => void
   cost: CostView
+  // compare
+  onRunRace: () => void
+  hasRace: boolean
+  racePlaying: boolean
+  raceAtEnd: boolean
+  raceSpeed: number
+  onRacePlay: () => void
+  onRacePause: () => void
+  onRaceStep: () => void
+  onRaceReset: () => void
+  onRaceSpeed: (s: number) => void
 }
 
 const SPEEDS = [0.5, 1, 2, 4]
@@ -69,10 +82,16 @@ export function ControlPanel(props: Props) {
           >
             Watch
           </button>
+          <button
+            className={mode === 'compare' ? 'mode-toggle__btn mode-toggle__btn--active' : 'mode-toggle__btn'}
+            onClick={() => props.onModeChange('compare')}
+          >
+            Compare
+          </button>
         </div>
       </section>
 
-      {mode === 'play' ? (
+      {mode === 'play' && (
         <>
           <RouteBuilder
             stores={props.stores}
@@ -94,8 +113,17 @@ export function ControlPanel(props: Props) {
             lastCost={game.lastCost}
             total={game.total}
           />
+          {props.canReplaySeason && (
+            <section className="panel__block">
+              <button className="btn btn--ghost" onClick={props.onReplaySeason}>
+                Replay my season
+              </button>
+            </section>
+          )}
         </>
-      ) : (
+      )}
+
+      {mode === 'watch' && (
         <>
           <section className="panel__block">
             <span className="eyebrow">Watch a baseline</span>
@@ -113,6 +141,13 @@ export function ControlPanel(props: Props) {
                 disabled={props.busy}
               >
                 Run Nearest
+              </button>
+              <button
+                className="btn btn--primary"
+                onClick={() => props.onRunAgent('rolling_horizon')}
+                disabled={props.busy}
+              >
+                Run Rolling
               </button>
             </div>
           </section>
@@ -152,6 +187,43 @@ export function ControlPanel(props: Props) {
           <section className="panel__block panel__block--cost">
             <span className="eyebrow">Cost</span>
             <CostBreakdown cost={props.cost} />
+          </section>
+        </>
+      )}
+
+      {mode === 'compare' && (
+        <>
+          <section className="panel__block">
+            <span className="eyebrow">Race all strategies</span>
+            <div className="panel__row">
+              <button className="btn btn--primary" onClick={props.onRunRace} disabled={props.busy}>
+                Run race
+              </button>
+            </div>
+          </section>
+
+          <section className="panel__block">
+            <span className="eyebrow">Playback</span>
+            <div className="panel__row panel__row--controls">
+              {props.racePlaying ? (
+                <button className="btn btn--icon" onClick={props.onRacePause} disabled={!props.hasRace} aria-label="Pause">⏸</button>
+              ) : (
+                <button className="btn btn--icon" onClick={props.onRacePlay} disabled={!props.hasRace} aria-label="Play">⏵</button>
+              )}
+              <button className="btn btn--icon" onClick={props.onRaceStep} disabled={!props.hasRace || props.raceAtEnd} aria-label="Step one day">⏭</button>
+              <button className="btn btn--icon" onClick={props.onRaceReset} disabled={!props.hasRace} aria-label="Reset">↺</button>
+              <div className="speed" role="group" aria-label="Speed">
+                {SPEEDS.map((s) => (
+                  <button
+                    key={s}
+                    className={s === props.raceSpeed ? 'speed__btn speed__btn--active mono' : 'speed__btn mono'}
+                    onClick={() => props.onRaceSpeed(s)}
+                  >
+                    {s}×
+                  </button>
+                ))}
+              </div>
+            </div>
           </section>
         </>
       )}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { stepGame } from '../api/client'
-import type { ActionView, CostView, RouteView, StateView } from '../api/types'
+import type { ActionView, AgentEpisodeResponse, CostView, DayView, RouteView, StateView } from '../api/types'
 import {
   addStop as addStopTo,
   emptyAction,
@@ -9,7 +9,7 @@ import {
   setQty as setQtyIn,
   validateAction,
 } from './action'
-import { DAY_MS } from './playback'
+import { buildHumanEpisode, DAY_MS } from './playback'
 
 const ZERO_COST: CostView = { travel: 0, holding: 0, stockout: 0, total: 0, reward: 0 }
 
@@ -26,6 +26,7 @@ export interface PlayGame {
   progress: number
   error: string | null
   activeRoutes: RouteView[]
+  episode: AgentEpisodeResponse | null
   addStop: (truckId: number, storeId: number, quantity: number) => void
   removeStop: (truckId: number, index: number) => void
   moveStop: (truckId: number, index: number, dir: -1 | 1) => void
@@ -53,6 +54,7 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
   const [phase, setPhase] = useState<'building' | 'animating'>('building')
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [trace, setTrace] = useState<DayView[]>([])
 
   // The action captured when Dispatch was pressed. The tween effect reads this
   // ref (not the live `action` state), so the /step POST is stable and the
@@ -76,6 +78,7 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
     setPhase('building')
     setProgress(0)
     setError(null)
+    setTrace([])
   }, [initialState])
 
   // The dispatch tween: while animating, sweep progress 0->1, then POST /step.
@@ -104,6 +107,7 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
               setLastCost(res.cost)
               setDone(res.done)
               setDay((d) => d + 1)
+              setTrace((t) => [...t, { day: t.length, action: res.action, cost: res.cost, state: res.state }])
               setAction(emptyAction(res.state.fleet.num_trucks))
               setProgress(0)
               setPhase('building')
@@ -163,6 +167,8 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
 
   const activeRoutes = phase === 'animating' ? action.routes : []
 
+  const episode = buildHumanEpisode(trace, total, done, 0)
+
   return {
     state,
     day,
@@ -176,6 +182,7 @@ export function usePlayGame(gameId: string | null, initialState: StateView | nul
     progress,
     error,
     activeRoutes,
+    episode,
     addStop,
     removeStop,
     moveStop,

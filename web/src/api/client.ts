@@ -3,6 +3,7 @@ import type {
   AgentName,
   ActionView,
   BaselineResponse,
+  CompareResponse,
   NewGameResponse,
   StateView,
   StepResponse,
@@ -66,4 +67,8 @@ export function runBaseline(
     method: 'POST',
     body: JSON.stringify({ agent }),
   })
+}
+
+export function runCompare(gameId: string): Promise<CompareResponse> {
+  return request<CompareResponse>(`/games/${gameId}/compare`, { method: 'POST' })
 }

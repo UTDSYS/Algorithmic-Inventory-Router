@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from agents.base import run_episode, trace_episode
 from agents.greedy import GreedyAgent
 from agents.nearest_neighbour import NearestNeighbourAgent
+from agents.rolling_horizon import RollingHorizonAgent
 from api.server import app
 from sim.config import default_scenario
 from sim.environment import InventoryRoutingEnv
@@ -98,6 +99,29 @@ def test_step_on_unknown_game_returns_404():
     assert client.post("/games/nope/step", json=deliver_nothing()).status_code == 404
 
 
+def test_step_echoes_executed_action_with_road_path():
+    game_id = new_game()["game_id"]
+    action = {
+        "routes": [{"truck_id": 0, "stops": [{"store_id": 0, "quantity": 10},
+                                             {"store_id": 3, "quantity": 5}]}]
+    }
+    body = client.post(f"/games/{game_id}/step", json=action).json()
+    assert "action" in body
+    route = body["action"]["routes"][0]
+    assert route["truck_id"] == 0
+    assert [(s["store_id"], s["quantity"]) for s in route["stops"]] == [(0, 10), (3, 5)]
+    # a served route carries a closed road polyline depot -> ... -> depot
+    depot = default_scenario().depot_location
+    assert tuple(route["path"][0]) == depot
+    assert tuple(route["path"][-1]) == depot
+
+
+def test_step_deliver_nothing_has_no_routes():
+    game_id = new_game()["game_id"]
+    body = client.post(f"/games/{game_id}/step", json={"routes": []}).json()
+    assert body["action"]["routes"] == []
+
+
 # --- backend is the source of truth --------------------------------------
 
 
@@ -162,6 +186,28 @@ def test_unknown_baseline_agent_returns_400():
     assert response.status_code == 400
 
 
+def test_baseline_rolling_horizon_matches_no_ui_run():
+    game = new_game()
+    game_id = game["game_id"]
+    response = client.post(f"/games/{game_id}/baseline", json={"agent": "rolling_horizon"})
+    assert response.status_code == 200
+    api_cost = response.json()["cost"]["total"]
+
+    expected = run_episode(
+        InventoryRoutingEnv(default_scenario()), RollingHorizonAgent(), seed=game["seed"]
+    ).total.total
+    assert api_cost == pytest.approx(expected)
+
+
+def test_agent_episode_rolling_horizon_runs_full_season():
+    game_id = new_game()["game_id"]
+    body = client.post(
+        f"/games/{game_id}/agent_episode", json={"agent": "rolling_horizon"}
+    ).json()
+    assert body["agent"] == "rolling_horizon"
+    assert len(body["days"]) == default_scenario().horizon
+
+
 # --- agent episode (trace for playback) ----------------------------------
 
 
@@ -219,6 +265,40 @@ def test_agent_episode_unknown_agent_returns_400():
         f"/games/{game_id}/agent_episode", json={"agent": "wizard"}
     )
     assert response.status_code == 400
+
+
+# --- compare (races every baseline agent on one seed) --------------------
+
+
+def test_compare_returns_one_episode_per_registered_agent():
+    game = new_game()
+    body = client.post(f"/games/{game['game_id']}/compare").json()
+    assert body["seed"] == game["seed"]
+    agents = [ep["agent"] for ep in body["episodes"]]
+    assert agents == ["greedy", "nearest_neighbour", "rolling_horizon"]
+    for ep in body["episodes"]:
+        assert len(ep["days"]) == default_scenario().horizon
+
+
+def test_compare_totals_match_no_ui_runs():
+    game = new_game()
+    body = client.post(f"/games/{game['game_id']}/compare").json()
+    factories = {
+        "greedy": GreedyAgent,
+        "nearest_neighbour": NearestNeighbourAgent,
+        "rolling_horizon": RollingHorizonAgent,
+    }
+    for ep in body["episodes"]:
+        expected = trace_episode(
+            InventoryRoutingEnv(default_scenario()),
+            factories[ep["agent"]](),
+            seed=game["seed"],
+        ).total.total
+        assert ep["total_cost"]["total"] == pytest.approx(expected)
+
+
+def test_compare_on_unknown_game_returns_404():
+    assert client.post("/games/nope/compare").status_code == 404
 
 
 # --- road geometry (item 10) ---------------------------------------------

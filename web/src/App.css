@@ -421,3 +421,20 @@
   color: #2e9e5b;
   font-weight: 600;
 }
+
+.race { width: 100%; }
+.race--empty { padding: 2rem; color: #55617a; text-align: center; }
+.race__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.race__tile { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid #e2e6ee; border-radius: 12px; background: #fff; }
+.race__tile--leader { border-color: #2d5bff; box-shadow: 0 0 0 2px rgba(45, 91, 255, 0.15); }
+.race__head { display: flex; justify-content: space-between; align-items: baseline; }
+.race__name { font-weight: 600; color: #0e1830; }
+.race__rank { color: #2d5bff; }
+.race__map { aspect-ratio: 1; }
+.race__map .map { width: 100%; height: 100%; }
+.race__total { align-self: flex-end; color: #0e1830; }
+.costbar { display: flex; width: 100%; height: 10px; border-radius: 5px; overflow: hidden; background: #eef1f6; }
+.costbar__seg { display: block; height: 100%; }
+.costbar__seg--travel { background: #2d5bff; }
+.costbar__seg--holding { background: #8324c9; }
+.costbar__seg--stockout { background: #e5484d; }
