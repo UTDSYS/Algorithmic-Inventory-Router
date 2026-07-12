@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from agents.base import Agent, run_episode, trace_episode
 from agents.greedy import GreedyAgent
 from agents.nearest_neighbour import NearestNeighbourAgent
+from agents.rolling_horizon import RollingHorizonAgent
 from sim.config import Scenario, default_scenario
 from sim.environment import InventoryRoutingEnv, Observation
 from sim.geometry import DistanceMatrix, route_path
@@ -49,6 +50,7 @@ app.add_middleware(
 BASELINE_AGENTS: dict[str, type[Agent]] = {
     "greedy": GreedyAgent,
     "nearest_neighbour": NearestNeighbourAgent,
+    "rolling_horizon": RollingHorizonAgent,
 }
 
 

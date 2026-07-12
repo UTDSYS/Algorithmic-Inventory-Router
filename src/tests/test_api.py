@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from agents.base import run_episode, trace_episode
 from agents.greedy import GreedyAgent
 from agents.nearest_neighbour import NearestNeighbourAgent
+from agents.rolling_horizon import RollingHorizonAgent
 from api.server import app
 from sim.config import default_scenario
 from sim.environment import InventoryRoutingEnv
@@ -160,6 +161,28 @@ def test_unknown_baseline_agent_returns_400():
     game_id = new_game()["game_id"]
     response = client.post(f"/games/{game_id}/baseline", json={"agent": "wizard"})
     assert response.status_code == 400
+
+
+def test_baseline_rolling_horizon_matches_no_ui_run():
+    game = new_game()
+    game_id = game["game_id"]
+    response = client.post(f"/games/{game_id}/baseline", json={"agent": "rolling_horizon"})
+    assert response.status_code == 200
+    api_cost = response.json()["cost"]["total"]
+
+    expected = run_episode(
+        InventoryRoutingEnv(default_scenario()), RollingHorizonAgent(), seed=game["seed"]
+    ).total.total
+    assert api_cost == pytest.approx(expected)
+
+
+def test_agent_episode_rolling_horizon_runs_full_season():
+    game_id = new_game()["game_id"]
+    body = client.post(
+        f"/games/{game_id}/agent_episode", json={"agent": "rolling_horizon"}
+    ).json()
+    assert body["agent"] == "rolling_horizon"
+    assert len(body["days"]) == default_scenario().horizon
 
 
 # --- agent episode (trace for playback) ----------------------------------
