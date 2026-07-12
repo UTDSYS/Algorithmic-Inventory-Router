@@ -18,9 +18,10 @@ interface Props {
   state: StateView
   routes: RouteView[]
   progress: number
+  compact?: boolean
 }
 
-export function MapView({ state, routes, progress }: Props) {
+export function MapView({ state, routes, progress, compact = false }: Props) {
   const depot = projectPoint(state.depot_location[0], state.depot_location[1], OPTS)
   // `?? []` guards against a stale backend that omits the road fields, so a
   // missing payload can't blank the whole map.
@@ -155,12 +156,16 @@ export function MapView({ state, routes, progress }: Props) {
               {storeName(store.store_id)}: {store.inventory}/{store.max_capacity} in stock ({label})
             </title>
             <circle cx={p.x} cy={p.y} r={14} fill={color} fillOpacity={0.9} stroke="#fff" strokeWidth={2} />
-            <text className="map__store-num" x={p.x} y={p.y + 4} textAnchor="middle">
-              {storeShortName(store.store_id)}
-            </text>
-            <text className="map__label" x={p.x} y={p.y + 30} textAnchor="middle">
-              {storeName(store.store_id)}
-            </text>
+            {!compact && (
+              <>
+                <text className="map__store-num" x={p.x} y={p.y + 4} textAnchor="middle">
+                  {storeShortName(store.store_id)}
+                </text>
+                <text className="map__label" x={p.x} y={p.y + 30} textAnchor="middle">
+                  {storeName(store.store_id)}
+                </text>
+              </>
+            )}
           </g>
         )
       })}
@@ -168,9 +173,11 @@ export function MapView({ state, routes, progress }: Props) {
       {/* depot */}
       <g transform={`translate(${depot.x} ${depot.y})`}>
         <rect x={-9} y={-9} width={18} height={18} rx={4} transform="rotate(45)" fill="#1b2a4a" />
-        <text className="map__label map__label--depot" x={0} y={30} textAnchor="middle">
-          DEPOT
-        </text>
+        {!compact && (
+          <text className="map__label map__label--depot" x={0} y={30} textAnchor="middle">
+            DEPOT
+          </text>
+        )}
       </g>
 
       {/* trucks */}
@@ -191,9 +198,11 @@ export function MapView({ state, routes, progress }: Props) {
               {/* windshield accent on the cab */}
               <rect x={10} y={-3.5} width={2.5} height={7} rx={1} fill="#fff" fillOpacity={0.45} />
             </g>
-            <text className="map__truck mono" x={0} y={3} textAnchor="middle">
-              {route.truck_id}
-            </text>
+            {!compact && (
+              <text className="map__truck mono" x={0} y={3} textAnchor="middle">
+                {route.truck_id}
+              </text>
+            )}
           </g>
         )
       })}

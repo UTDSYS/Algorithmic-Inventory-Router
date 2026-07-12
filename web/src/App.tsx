@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
-import { newGame, runAgentEpisode } from './api/client'
+import { newGame, runAgentEpisode, runCompare } from './api/client'
 import type { AgentEpisodeResponse, AgentName, StateView } from './api/types'
 import { ControlPanel } from './components/ControlPanel'
 import { GameHeader } from './components/GameHeader'
 import { MapView } from './components/MapView'
+import { RaceView } from './components/RaceView'
 import { StoreStrip } from './components/StoreStrip'
 import { usePlayback } from './game/usePlayback'
 import { usePlayGame } from './game/usePlayGame'
+import { useRace, type LabeledEpisode } from './game/useRace'
 
-type Mode = 'play' | 'watch'
+type Mode = 'play' | 'watch' | 'compare'
 
 const AGENT_LABELS: Record<AgentName, string> = {
   greedy: 'Greedy',
@@ -26,10 +28,12 @@ function App() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<Mode>('play')
+  const [raceEntries, setRaceEntries] = useState<LabeledEpisode[]>([])
   const autoPlay = useRef(false)
 
   const game = usePlayGame(gameId, baseState)
   const playback = usePlayback(episode, baseState)
+  const race = useRace(raceEntries, baseState)
 
   const startGame = useCallback(async (seedValue?: number) => {
     setBusy(true)
@@ -41,6 +45,7 @@ function App() {
       setSeed(String(created.seed))
       setEpisode(null)
       setAgent(null)
+      setRaceEntries([])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not start a game')
     } finally {
@@ -68,6 +73,25 @@ function App() {
       setEpisode(result)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not run the agent')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleRunRace = async () => {
+    if (!gameId) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await runCompare(gameId)
+      const entries: LabeledEpisode[] = res.episodes.map((ep) => ({
+        label: AGENT_LABELS[ep.agent as AgentName],
+        episode: ep,
+      }))
+      if (game.episode) entries.unshift({ label: 'You', episode: game.episode })
+      setRaceEntries(entries)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not run the race')
     } finally {
       setBusy(false)
     }
@@ -101,7 +125,11 @@ function App() {
           <StoreStrip stores={state.stores} />
           <div className="app__stage">
             <div className="app__map-wrap">
-              <MapView state={state} routes={routes} progress={progress} />
+              {mode === 'compare' ? (
+                <RaceView race={race} />
+              ) : (
+                <MapView state={state} routes={routes} progress={progress} />
+              )}
             </div>
             <ControlPanel
               seed={seed}
@@ -123,6 +151,16 @@ function App() {
               onReset={playback.reset}
               onSpeed={playback.setSpeed}
               cost={playback.runningCost}
+              onRunRace={handleRunRace}
+              hasRace={raceEntries.length > 0}
+              racePlaying={race.playing}
+              raceAtEnd={race.completedDays >= race.horizon}
+              raceSpeed={race.speed}
+              onRacePlay={race.play}
+              onRacePause={race.pause}
+              onRaceStep={race.step}
+              onRaceReset={race.reset}
+              onRaceSpeed={race.setSpeed}
             />
           </div>
         </>
