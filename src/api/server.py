@@ -143,6 +143,7 @@ class StepResponse(BaseModel):
     done: bool
     cost: CostView
     total_cost: CostView
+    action: ActionView
 
 
 class BaselineResponse(BaseModel):
@@ -282,16 +283,19 @@ def get_state(game_id: str) -> StateView:
 @app.post("/games/{game_id}/step", response_model=StepResponse)
 def step_game(game_id: str, request: ActionRequest) -> StepResponse:
     session = _get_session(game_id)
+    executed = _to_action(request)
     try:
-        result = session.env.step(_to_action(request))
+        result = session.env.step(executed)
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    matrix = _matrix_for(session.scenario)
     return StepResponse(
         state=_state_view(result.observation),
         reward=result.reward,
         done=result.done,
         cost=_cost_view(result.info["cost"]),
         total_cost=_cost_view(session.env.total_cost),
+        action=_action_view(executed, matrix),
     )
 
 

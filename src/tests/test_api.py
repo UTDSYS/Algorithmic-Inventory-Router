@@ -99,6 +99,29 @@ def test_step_on_unknown_game_returns_404():
     assert client.post("/games/nope/step", json=deliver_nothing()).status_code == 404
 
 
+def test_step_echoes_executed_action_with_road_path():
+    game_id = new_game()["game_id"]
+    action = {
+        "routes": [{"truck_id": 0, "stops": [{"store_id": 0, "quantity": 10},
+                                             {"store_id": 3, "quantity": 5}]}]
+    }
+    body = client.post(f"/games/{game_id}/step", json=action).json()
+    assert "action" in body
+    route = body["action"]["routes"][0]
+    assert route["truck_id"] == 0
+    assert [(s["store_id"], s["quantity"]) for s in route["stops"]] == [(0, 10), (3, 5)]
+    # a served route carries a closed road polyline depot -> ... -> depot
+    depot = default_scenario().depot_location
+    assert tuple(route["path"][0]) == depot
+    assert tuple(route["path"][-1]) == depot
+
+
+def test_step_deliver_nothing_has_no_routes():
+    game_id = new_game()["game_id"]
+    body = client.post(f"/games/{game_id}/step", json={"routes": []}).json()
+    assert body["action"]["routes"] == []
+
+
 # --- backend is the source of truth --------------------------------------
 
 
