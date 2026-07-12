@@ -181,6 +181,11 @@ class AgentEpisodeResponse(BaseModel):
     total_cost: CostView
 
 
+class CompareResponse(BaseModel):
+    seed: int
+    episodes: list[AgentEpisodeResponse]
+
+
 # --- translation ---------------------------------------------------------
 
 
@@ -311,18 +316,14 @@ def run_baseline(game_id: str, request: BaselineRequest) -> BaselineResponse:
     return BaselineResponse(agent=request.agent, cost=_cost_view(result.total))
 
 
-@app.post("/games/{game_id}/agent_episode", response_model=AgentEpisodeResponse)
-def run_agent_episode(game_id: str, request: BaselineRequest) -> AgentEpisodeResponse:
-    session = _get_session(game_id)
-    agent_cls = BASELINE_AGENTS.get(request.agent)
-    if agent_cls is None:
-        raise HTTPException(status_code=400, detail=f"unknown agent {request.agent}")
+def _agent_episode(session: GameSession, name: str) -> AgentEpisodeResponse:
+    agent_cls = BASELINE_AGENTS[name]
     trace = trace_episode(
         InventoryRoutingEnv(session.scenario), agent_cls(), seed=session.seed
     )
     matrix = _matrix_for(session.scenario)
     return AgentEpisodeResponse(
-        agent=request.agent,
+        agent=name,
         seed=session.seed,
         days=[
             DayView(
@@ -334,4 +335,21 @@ def run_agent_episode(game_id: str, request: BaselineRequest) -> AgentEpisodeRes
             for record in trace.records
         ],
         total_cost=_cost_view(trace.total),
+    )
+
+
+@app.post("/games/{game_id}/agent_episode", response_model=AgentEpisodeResponse)
+def run_agent_episode(game_id: str, request: BaselineRequest) -> AgentEpisodeResponse:
+    session = _get_session(game_id)
+    if request.agent not in BASELINE_AGENTS:
+        raise HTTPException(status_code=400, detail=f"unknown agent {request.agent}")
+    return _agent_episode(session, request.agent)
+
+
+@app.post("/games/{game_id}/compare", response_model=CompareResponse)
+def run_compare(game_id: str) -> CompareResponse:
+    session = _get_session(game_id)
+    return CompareResponse(
+        seed=session.seed,
+        episodes=[_agent_episode(session, name) for name in BASELINE_AGENTS],
     )

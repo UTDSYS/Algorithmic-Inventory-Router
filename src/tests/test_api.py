@@ -267,6 +267,40 @@ def test_agent_episode_unknown_agent_returns_400():
     assert response.status_code == 400
 
 
+# --- compare (races every baseline agent on one seed) --------------------
+
+
+def test_compare_returns_one_episode_per_registered_agent():
+    game = new_game()
+    body = client.post(f"/games/{game['game_id']}/compare").json()
+    assert body["seed"] == game["seed"]
+    agents = [ep["agent"] for ep in body["episodes"]]
+    assert agents == ["greedy", "nearest_neighbour", "rolling_horizon"]
+    for ep in body["episodes"]:
+        assert len(ep["days"]) == default_scenario().horizon
+
+
+def test_compare_totals_match_no_ui_runs():
+    game = new_game()
+    body = client.post(f"/games/{game['game_id']}/compare").json()
+    factories = {
+        "greedy": GreedyAgent,
+        "nearest_neighbour": NearestNeighbourAgent,
+        "rolling_horizon": RollingHorizonAgent,
+    }
+    for ep in body["episodes"]:
+        expected = trace_episode(
+            InventoryRoutingEnv(default_scenario()),
+            factories[ep["agent"]](),
+            seed=game["seed"],
+        ).total.total
+        assert ep["total_cost"]["total"] == pytest.approx(expected)
+
+
+def test_compare_on_unknown_game_returns_404():
+    assert client.post("/games/nope/compare").status_code == 404
+
+
 # --- road geometry (item 10) ---------------------------------------------
 
 
