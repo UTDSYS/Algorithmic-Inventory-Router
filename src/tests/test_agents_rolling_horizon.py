@@ -128,3 +128,56 @@ def test_plan_empty_horizon_delivers_nothing():
         fleet_capacity_per_day=100,
         horizon=3,
     ) == [0]
+
+
+# ---- RollingHorizonAgent (integration with the env) ------------------------
+
+
+def test_agent_returns_valid_action_accepted_by_env():
+    env = InventoryRoutingEnv(make_scenario(horizon=3, spread=2.0))
+    obs = env.reset()
+    action = RollingHorizonAgent().act(obs)
+    assert isinstance(action, Action)
+    env.step(action)  # env validates capacity/store ids; must not raise
+
+
+def test_agent_is_deterministic():
+    scenario = default_scenario()
+    a = run_episode(InventoryRoutingEnv(scenario), RollingHorizonAgent())
+    b = run_episode(InventoryRoutingEnv(scenario), RollingHorizonAgent())
+    assert a.total.total == pytest.approx(b.total.total)
+
+
+def test_agent_beats_delivering_nothing():
+    scenario = default_scenario()
+    rh_total = run_episode(
+        InventoryRoutingEnv(scenario), RollingHorizonAgent()
+    ).total.total
+
+    nothing = InventoryRoutingEnv(scenario)
+    nothing.reset()
+    done = False
+    while not done:
+        done = nothing.step(Action(routes=())).done
+    assert rh_total < nothing.total_cost.total
+
+
+def test_agent_delivers_nothing_when_all_full():
+    # Every store already at capacity -> the plan cannot deliver (cap binds).
+    scenario = make_scenario(
+        horizon=1, spread=0.0, store_specs=[(0.0, 1.0, 40), (0.0, 2.0, 40)]
+    )
+    env = InventoryRoutingEnv(scenario)
+    obs = env.reset()
+    action = RollingHorizonAgent().act(obs)
+    delivered = sum(s.quantity for r in action.routes for s in r.stops)
+    assert delivered == 0
+
+
+def test_agent_action_respects_fleet_capacity():
+    scenario = default_scenario()
+    env = InventoryRoutingEnv(scenario)
+    obs = env.reset()
+    action = RollingHorizonAgent().act(obs)
+    per_truck = [sum(s.quantity for s in r.stops) for r in action.routes]
+    assert all(load <= scenario.fleet.capacity for load in per_truck)
