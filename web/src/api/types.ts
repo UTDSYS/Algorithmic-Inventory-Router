@@ -73,6 +73,7 @@ export interface StepResponse {
   done: boolean
   cost: CostView
   total_cost: CostView
+  action: ActionView
 }
 
 export interface BaselineResponse {
@@ -94,4 +95,9 @@ export interface AgentEpisodeResponse {
   total_cost: CostView
 }
 
-export type AgentName = 'greedy' | 'nearest_neighbour'
+export type AgentName = 'greedy' | 'nearest_neighbour' | 'rolling_horizon'
+
+export interface CompareResponse {
+  seed: number
+  episodes: AgentEpisodeResponse[]
+}

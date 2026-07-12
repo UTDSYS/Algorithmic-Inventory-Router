@@ -14,6 +14,7 @@ type Mode = 'play' | 'watch'
 const AGENT_LABELS: Record<AgentName, string> = {
   greedy: 'Greedy',
   nearest_neighbour: 'Nearest-Neighbour',
+  rolling_horizon: 'Rolling-Horizon',
 }
 
 function App() {

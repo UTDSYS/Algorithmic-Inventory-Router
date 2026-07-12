@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getState, newGame, runAgentEpisode } from './client'
+import { getState, newGame, runAgentEpisode, runCompare } from './client'
 
 function mockFetch(body: unknown, ok = true, status = 200) {
   const fn = vi.fn().mockResolvedValue({
@@ -51,5 +51,15 @@ describe('api client', () => {
   it('throws with the server detail on a non-ok response', async () => {
     mockFetch({ detail: 'unknown game' }, false, 404)
     await expect(getState('nope')).rejects.toThrow(/unknown game/)
+  })
+
+  it('runCompare POSTs to the compare endpoint', async () => {
+    const body = { seed: 42, episodes: [] }
+    const fn = mockFetch(body)
+    const result = await runCompare('game-1')
+    const [url, init] = fn.mock.calls[0]
+    expect(url).toContain('/games/game-1/compare')
+    expect(init.method).toBe('POST')
+    expect(result).toEqual(body)
   })
 })
