@@ -137,8 +137,8 @@ function App() {
 
       {state ? (
         <>
-          <StoreStrip stores={state.stores} />
           <div className="app__stage">
+            <StoreStrip stores={state.stores} />
             <div className="app__map-wrap">
               {mode === 'compare' ? (
                 <RaceView race={race} />

@@ -1,6 +1,6 @@
 import type { CostView } from '../api/types'
 import { formatCost } from '../game/format'
-import { CostBreakdown } from './CostBreakdown'
+import { CostBreakdown, ScoringInfo } from './CostBreakdown'
 
 interface Props {
   day: number
@@ -13,7 +13,10 @@ interface Props {
 export function ScorePanel({ day, horizon, done, lastCost, total }: Props) {
   return (
     <section className="panel__block panel__block--cost">
-      <span className="eyebrow">Your season</span>
+      <div className="panel__block-head">
+        <span className="eyebrow">Your season</span>
+        <ScoringInfo />
+      </div>
       <div className="cost__row">
         <span className="cost__label">Day</span>
         <span className="cost__value mono">

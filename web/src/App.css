@@ -66,14 +66,9 @@
 }
 .stores__intro {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.stores__help {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--ink-60);
-  max-width: 68ch;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 .legend {
   font-weight: 600;
@@ -88,8 +83,8 @@
   color: var(--health-ok);
 }
 .stores__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 .store {
@@ -146,7 +141,7 @@
 /* stage: map + panel */
 .app__stage {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(210px, 0.9fr) minmax(0, 1.7fr) minmax(280px, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -438,3 +433,74 @@
 .costbar__seg--travel { background: #2d5bff; }
 .costbar__seg--holding { background: #8324c9; }
 .costbar__seg--stockout { background: #e5484d; }
+
+/* info popover */
+.panel__block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.info {
+  position: relative;
+  display: inline-flex;
+}
+.info__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink-60);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.info__trigger:hover,
+.info__trigger[aria-expanded='true'] {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+.info__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(14, 24, 48, 0.16);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--ink-60);
+  text-align: left;
+  font-weight: 400;
+}
+.info__title {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+.info__body p {
+  margin: 0 0 6px;
+}
+.info__body p:last-child {
+  margin-bottom: 0;
+}
+.info__legend {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}

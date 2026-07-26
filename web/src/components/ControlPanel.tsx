@@ -1,6 +1,6 @@
 import type { AgentName, CostView, StoreView } from '../api/types'
 import type { PlayGame } from '../game/usePlayGame'
-import { CostBreakdown } from './CostBreakdown'
+import { CostBreakdown, ScoringInfo } from './CostBreakdown'
 import { RouteBuilder } from './RouteBuilder'
 import { ScorePanel } from './ScorePanel'
 
@@ -185,7 +185,10 @@ export function ControlPanel(props: Props) {
           </section>
 
           <section className="panel__block panel__block--cost">
-            <span className="eyebrow">Cost</span>
+            <div className="panel__block-head">
+              <span className="eyebrow">Cost</span>
+              <ScoringInfo />
+            </div>
             <CostBreakdown cost={props.cost} />
           </section>
         </>
