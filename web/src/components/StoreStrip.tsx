@@ -1,6 +1,7 @@
 import type { StoreView } from '../api/types'
 import { inventoryHealth } from '../game/health'
 import { storeName } from '../game/store'
+import { InfoPopover } from './InfoPopover'
 
 function StoreBar({ store }: { store: StoreView }) {
   const ratio = store.max_capacity > 0 ? store.inventory / store.max_capacity : 0
@@ -46,13 +47,26 @@ export function StoreStrip({ stores }: { stores: StoreView[] }) {
     <section className="stores" aria-label="Store inventory">
       <div className="stores__intro">
         <span className="eyebrow">Stores</span>
-        <p className="stores__help">
-          Each store's stock against its capacity. Color shows stockout risk —
-          <span className="legend legend--critical"> Critical</span>,
-          <span className="legend legend--low"> Low</span>,
-          <span className="legend legend--ok"> Stocked</span>. Trucks refill them
-          before demand hits.
-        </p>
+        <InfoPopover title="Reading a store" label="What the store cards show">
+          <p>
+            Each card is one store. The bar shows how full it is — current stock
+            against its capacity. Trucks refill stores before demand hits.
+          </p>
+          <p>The status color is its stockout risk:</p>
+          <ul className="info__legend">
+            <li>
+              <span className="legend legend--critical">Critical</span> — almost
+              empty, at risk of running out
+            </li>
+            <li>
+              <span className="legend legend--low">Low</span> — running down,
+              refill soon
+            </li>
+            <li>
+              <span className="legend legend--ok">Stocked</span> — healthy for now
+            </li>
+          </ul>
+        </InfoPopover>
       </div>
       <div className="stores__grid">
         {stores.map((store) => (
