@@ -1,8 +1,12 @@
 """Tests for agents.rolling_horizon (item 11)."""
 
+import os
+import sys
+
 import pytest
 
 from agents.base import run_episode
+from agents.nearest_neighbour import NearestNeighbourAgent
 from agents.rolling_horizon import RollingHorizonAgent, plan_deliveries
 from sim.config import Scenario, StoreConfig, default_scenario
 from sim.environment import InventoryRoutingEnv
@@ -63,6 +67,34 @@ def test_plan_delivers_just_in_time_not_fill_to_capacity():
         horizon=3,
     )
     assert q == [10]
+
+
+def test_plan_batches_deliveries_when_visits_are_costly():
+    # inv 0, demand 10/day for 3 days, ample fleet + capacity. With no visit cost
+    # the plan is just-in-time (10 today). With a large per-visit charge, paying
+    # to drive out every day is wasteful, so the plan front-loads more of the
+    # horizon's demand into today's delivery to avoid future visits.
+    jit = plan_deliveries(
+        inventory=[0],
+        forecasts=[[10.0, 10.0, 10.0]],
+        max_capacity=[40],
+        holding=[1.0],
+        stockout=[20.0],
+        fleet_capacity_per_day=100,
+        horizon=3,
+    )
+    assert jit == [10]
+    batched = plan_deliveries(
+        inventory=[0],
+        forecasts=[[10.0, 10.0, 10.0]],
+        max_capacity=[40],
+        holding=[1.0],
+        stockout=[20.0],
+        fleet_capacity_per_day=100,
+        horizon=3,
+        visit_cost=50.0,
+    )
+    assert batched[0] > jit[0]
 
 
 def test_plan_prestocks_when_fleet_cannot_cover_future_spike():
@@ -172,6 +204,57 @@ def test_agent_delivers_nothing_when_all_full():
     action = RollingHorizonAgent().act(obs)
     delivered = sum(s.quantity for r in action.routes for s in r.stops)
     assert delivered == 0
+
+
+def test_agent_beats_nearest_neighbour_on_default_scenario():
+    # The default agent charges itself for visits, so it batches deliveries and
+    # its total cost (travel-dominated) comes in below the nearest-neighbour
+    # heuristic's, averaged across seeds.
+    scenario = default_scenario()
+    seeds = range(5)
+    rh = sum(
+        run_episode(InventoryRoutingEnv(scenario), RollingHorizonAgent(), seed=s)
+        .total.total
+        for s in seeds
+    )
+    nn = sum(
+        run_episode(
+            InventoryRoutingEnv(scenario), NearestNeighbourAgent(), seed=s
+        ).total.total
+        for s in seeds
+    )
+    assert rh < nn
+
+
+def test_agent_solve_does_not_leak_solver_stdout(tmp_path):
+    # The bundled HiGHS MIP solver emits stray debug lines to the C-level stdout
+    # on some instances (e.g. default scenario seed 2), buffered and flushed at
+    # process exit -- so pytest's capture never sees it. Redirect fd 1 to a file
+    # and force the C stdio flush ourselves: the planner must have suppressed the
+    # solver's output, so nothing lands in the file (otherwise it pollutes the
+    # API server's logs on every /compare call).
+    import ctypes
+    import ctypes.util
+
+    libc = ctypes.CDLL(ctypes.util.find_library("c"))
+    sink = tmp_path / "fd1.txt"
+    sys.stdout.flush()
+    libc.fflush(None)
+    saved = os.dup(1)
+    fd = os.open(str(sink), os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+    os.dup2(fd, 1)
+    try:
+        run_episode(
+            InventoryRoutingEnv(default_scenario()),
+            RollingHorizonAgent(),
+            seed=2,
+        )
+    finally:
+        libc.fflush(None)
+        os.dup2(saved, 1)
+        os.close(saved)
+        os.close(fd)
+    assert sink.read_text() == ""
 
 
 def test_agent_action_respects_fleet_capacity():
